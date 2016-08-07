@@ -1,0 +1,17 @@
+# Trained models and parameters
+*.pkl
+*.zip
+
+# vi backups
+*~
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyBuilder
+target/
+
+#Ipython Notebook
+.ipynb_checkpoints
