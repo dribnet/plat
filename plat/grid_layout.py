@@ -139,7 +139,7 @@ def create_gradient_grid(rows, cols, dim, analogy, anchors, spherical, gaussian)
             # allows rows == 0
             y_frac = 0
         else:
-            y_frac = y / (rows - 1)
+            y_frac = y / (rows - 1.0)
         xmin_ycur = lerpv(y_frac, xmin_ymin, xmin_ymax)
         xmax_ycur = lerpv(y_frac, xmax_ymin, xmax_ymax)
         for x in range(cols):
@@ -147,7 +147,7 @@ def create_gradient_grid(rows, cols, dim, analogy, anchors, spherical, gaussian)
                 # allows cols == 0
                 x_frac = 0
             else:
-                x_frac = x / (cols - 1)
+                x_frac = x / (cols - 1.0)
             xcur_ycur = lerpv(x_frac, xmin_ycur, xmax_ycur)
             n = y * cols + x
             u_list[n:n+1,:] = xcur_ycur
