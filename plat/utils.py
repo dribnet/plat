@@ -43,6 +43,16 @@ def get_json_vectors(filename):
         json_data = json.load(json_file)
     return np.array(json_data)
 
+# more general case: comma separated list
+def json_list_to_array(json_list):
+    """Return np array of vectors from multiple json sources"""
+    files = json_list.split(",")
+    encoded = []
+    for file in files:
+        with open(file) as json_file:
+            encoded = encoded + json.load(json_file)
+    return np.array(encoded)
+
 def offset_from_string(x_indices_str, offsets, dim):
     """Return json vectors from index shorthand list (allows inverting)"""
     x_offset = np.zeros((dim,))
