@@ -43,6 +43,11 @@ def get_json_vectors(filename):
         json_data = json.load(json_file)
     return np.array(json_data)
 
+def save_json_vectors(vectors, filename):
+    """Story np array of vectors as json"""
+    with open(filename, 'w') as outfile:
+        json.dump(vectors.tolist(), outfile)
+
 # more general case: comma separated list
 def json_list_to_array(json_list):
     """Return np array of vectors from multiple json sources"""
