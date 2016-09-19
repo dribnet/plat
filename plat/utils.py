@@ -61,6 +61,8 @@ def json_list_to_array(json_list):
 def offset_from_string(x_indices_str, offsets, dim):
     """Return json vectors from index shorthand list (allows inverting)"""
     x_offset = np.zeros((dim,))
+    if(x_indices_str == "_"):
+        return x_offset
     if x_indices_str[0] == ",":
         x_indices_str = x_indices_str[1:]
     x_indices = map(int, x_indices_str.split(","))
