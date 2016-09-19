@@ -12,9 +12,8 @@ def lerp_gaussian(val, low, high):
     lerped_gau = lerp(val, low_gau, high_gau)
     return norm.ppf(lerped_gau)
 
-# http://stackoverflow.com/a/2880012/1010653
 def slerp(val, low, high):
-    """Spherical interpolation"""
+    """Spherical interpolation. val has a range of 0 to 1."""
     if val <= 0:
         return low
     elif val >= 1:
