@@ -8,7 +8,7 @@ import random
 import sys
 import json
 
-from plat.grid_layout import grid2img, create_gradient_grid, create_splash_grid, create_chain_grid, create_fan_grid
+from plat.grid_layout import grid2img, create_gradient_grid, create_mine_grid, create_chain_grid, create_fan_grid
 from plat.utils import anchors_from_image, get_json_vectors, offset_from_string
 
 import importlib
@@ -52,13 +52,13 @@ def add_shoulders(images, anchor_images, rows, cols):
     return nimages, rows, ncols
 
 # returns list of latent variables to support rows x cols 
-def generate_latent_grid(z_dim, rows, cols, fan, gradient, spherical, gaussian, anchors, anchor_images, splash, chain, spacing, analogy, rand_uniform=False):
+def generate_latent_grid(z_dim, rows, cols, fan, gradient, spherical, gaussian, anchors, anchor_images, mine, chain, spacing, analogy, rand_uniform=False):
     if fan:
         z = create_fan_grid(z_dim, cols, rows)
     elif gradient:
         z = create_gradient_grid(rows, cols, z_dim, analogy, anchors, spherical, gaussian)
-    elif splash:
-        z = create_splash_grid(rows, cols, z_dim, spacing, anchors, spherical, gaussian)
+    elif mine:
+        z = create_mine_grid(rows, cols, z_dim, spacing, anchors, spherical, gaussian)
     elif chain:
         z = create_chain_grid(rows, cols, z_dim, spacing, anchors, spherical, gaussian)
     else:
@@ -282,12 +282,12 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
 
     z_dim = dmodel.get_zdim()
     # I don't remember what partway/encircle do so they are not handling the chain layout
-    # this handles the case (at least) of splashes with random anchors
-    if (args.partway is not None) or args.encircle or (args.splash and anchors is None):
+    # this handles the case (at least) of mines with random anchors
+    if (args.partway is not None) or args.encircle or (args.mine and anchors is None):
         srows=((args.rows // args.spacing) + 1)
         scols=((args.cols // args.spacing) + 1)
         rand_anchors = generate_latent_grid(z_dim, rows=srows, cols=scols, fan=False, gradient=False,
-            spherical=False, gaussian=False, anchors=None, anchor_images=None, splash=False, chain=False,
+            spherical=False, gaussian=False, anchors=None, anchor_images=None, mine=False, chain=False,
             spacing=args.spacing, analogy=False, rand_uniform=args.uniform)
         if args.partway is not None:
             l = len(rand_anchors)
@@ -298,7 +298,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
         else:
             anchors = rand_anchors
     z = generate_latent_grid(z_dim, args.rows, args.cols, args.fan, args.gradient, not args.linear, args.gaussian,
-            anchors, anchor_images, args.splash, args.chain, args.spacing, args.analogy)
+            anchors, anchor_images, args.mine, args.chain, args.spacing, args.analogy)
     if global_offset is not None:
         z = z + global_offset
 
@@ -351,12 +351,12 @@ def main(cliargs):
     parser.add_argument('--tight', dest='tight', default=False, action='store_true')
     parser.add_argument("--seed", type=int,
                 default=None, help="Optional random seed")
-    parser.add_argument('--splash', dest='splash', default=False, action='store_true')
+    parser.add_argument('--mine', dest='mine', default=False, action='store_true')
     parser.add_argument('--chain', dest='chain', default=False, action='store_true')
     parser.add_argument('--encircle', dest='encircle', default=False, action='store_true')
     parser.add_argument('--partway', dest='partway', type=float, default=None)
     parser.add_argument("--spacing", type=int, default=3,
-                        help="spacing of splash grid, w & h must be multiples +1")
+                        help="spacing of mine grid, w & h must be multiples +1")
     parser.add_argument('--anchors', dest='anchors', default=False, action='store_true',
                         help="use reconstructed images instead of random ones")
     parser.add_argument('--anchor-image', dest='anchor_image', default=None,

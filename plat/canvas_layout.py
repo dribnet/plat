@@ -1,7 +1,7 @@
 import numpy as np
 from plat.interpolate import get_interpfn
 
-def create_splash_canvas(rows, cols, y, x, anchors, spherical=True, gaussian=False):
+def create_mine_canvas(rows, cols, y, x, anchors, spherical=True, gaussian=False):
     lerpv = get_interpfn(spherical, gaussian)
     x = np.clip(x, 0, 1)
     y = np.clip(y, 0, 1)

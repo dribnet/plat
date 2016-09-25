@@ -42,7 +42,7 @@ def grid2img(arr, rows, cols, with_space):
 
 def create_chain_grid(rows, cols, dim, space, anchors, spherical, gaussian):
     """Create a grid of latents with chained-analogy layout"""
-    ## Map (r/s + c/w - 1) anchors to r/s * c/s, then call create_splash_grid
+    ## Map (r/s + c/w - 1) anchors to r/s * c/s, then call create_mine_grid
     num_row_anchors = (rows + space - 1) / space
     num_col_anchors = (cols + space - 1) / space
     u_list = np.zeros((num_row_anchors, num_col_anchors, dim))    
@@ -66,9 +66,9 @@ def create_chain_grid(rows, cols, dim, space, anchors, spherical, gaussian):
                 u_list[y,x,:] = avg_len * anal_unit_vec
 
     u_grid = u_list.reshape(num_row_anchors * num_col_anchors, dim)
-    return create_splash_grid(rows, cols, dim, space, u_grid, spherical, gaussian)
+    return create_mine_grid(rows, cols, dim, space, u_grid, spherical, gaussian)
 
-def create_splash_grid(rows, cols, dim, space, anchors, spherical, gaussian):
+def create_mine_grid(rows, cols, dim, space, anchors, spherical, gaussian):
     """Create a grid of latents with splash layout"""
     lerpv = get_interpfn(spherical, gaussian)
 
