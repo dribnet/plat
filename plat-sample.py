@@ -69,7 +69,7 @@ def generate_latent_grid(z_dim, rows, cols, fan, gradient, spherical, gaussian, 
 
     return z
 
-def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, batch_size):
+def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, batch_size=24):
     z_queue = z[:]
     samples = None
     # print("========> DECODING {} at a time".format(batch_size))
