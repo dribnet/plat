@@ -69,8 +69,20 @@ def generate_latent_grid(z_dim, rows, cols, fan, gradient, spherical, gaussian, 
 
     return z
 
-def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path):
-    samples = dmodel.sample_at(z)
+def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, batch_size):
+    z_queue = z[:]
+    samples = None
+    # print("========> DECODING {} at a time".format(batch_size))
+    while(len(z_queue) > 0):
+        cur_z = z_queue[:batch_size]
+        z_queue = z_queue[batch_size:]
+        decoded = dmodel.sample_at(cur_z)
+        if samples is None:
+            samples = decoded
+        else:
+            samples = np.concatenate((samples, decoded), axis=0)
+
+    # samples = dmodel.sample_at(z)
 
     if shoulders:
         samples, rows, cols = add_shoulders(samples, anchor_images, rows, cols)
@@ -246,7 +258,19 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
         dmodel = ModelClass(filename=args.model)
 
     if anchor_images is not None:
-        anchors = dmodel.encode_images(anchor_images)
+        x_queue = anchor_images[:]
+        anchors = None
+        # print("========> ENCODING {} at a time".format(args.batch_size))
+        while(len(x_queue) > 0):
+            cur_x = x_queue[:args.batch_size]
+            x_queue = x_queue[args.batch_size:]
+            encoded = dmodel.encode_images(cur_x)
+            if anchors is None:
+                anchors = encoded
+            else:
+                anchors = np.concatenate((anchors, encoded), axis=0)
+
+        # anchors = dmodel.encode_images(anchor_images)
     elif args.anchor_vectors is not None:
         anchors = get_json_vectors(args.anchor_vectors)
     else:
@@ -259,7 +283,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
         if anchors is not None:
             output_vectors(anchors)
         else:
-            stream_output_vectors(dmodel, args.dataset, args.split, batch_size=args.encoder_batch_size)
+            stream_output_vectors(dmodel, args.dataset, args.split, batch_size=args.batch_size)
         sys.exit(0)
 
     global_offset = None
@@ -302,7 +326,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
     if global_offset is not None:
         z = z + global_offset
 
-    grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path)
+    grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args.batch_size)
     return dmodel
 
 def main(cliargs):
@@ -389,8 +413,8 @@ def main(cliargs):
                         help="Append anchors to left/right columns")
     parser.add_argument('--encoder', dest='encoder', default=False, action='store_true',
                         help="Ouput dataset as encoded vectors")
-    parser.add_argument("--encoder-batch-size", dest='encoder_batch_size',
-                        type=int, default=20,
+    parser.add_argument("--batch-size", dest='batch_size',
+                        type=int, default=64,
                         help="batch size when encoding vectors")
     parser.add_argument("--image-size", dest='image_size', type=int, default=64,
                         help="size of (offset) images")
