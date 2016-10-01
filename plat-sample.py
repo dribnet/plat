@@ -7,6 +7,8 @@ import numpy as np
 import random
 import sys
 import json
+import datetime
+import os
 
 from plat.grid_layout import grid2img, create_gradient_grid, create_mine_grid, create_chain_grid, create_fan_grid
 from plat.utils import anchors_from_image, get_json_vectors, offset_from_string
@@ -69,6 +71,21 @@ def generate_latent_grid(z_dim, rows, cols, fan, gradient, spherical, gaussian, 
 
     return z
 
+# this function can fill in placeholders for %DATE%, %SIZE% and %SEQ%
+def emit_filename(filename, image_size):
+    datestr = datetime.datetime.now().strftime("%Y%m%d")
+    filename = filename.replace('%DATE%', datestr)
+    filename = filename.replace('%SIZE%', "{:d}".format(image_size))
+    if '%SEQ%' in filename:
+        # determine what the next available number is
+        cur_seq = 1
+        candidate = filename.replace('%SEQ%', "{:02d}".format(cur_seq))
+        while os.path.exists(candidate):
+            cur_seq = cur_seq + 1
+            candidate = filename.replace('%SEQ%', "{:02d}".format(cur_seq))
+        filename = candidate
+    return filename
+
 def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, batch_size=24):
     z_queue = z[:]
     samples = None
@@ -87,9 +104,12 @@ def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, sa
     if shoulders:
         samples, rows, cols = add_shoulders(samples, anchor_images, rows, cols)
 
-    print('Preparing image grid...')
+    # each sample is 3xsizexsize
+    image_size = samples[0].shape[1]
+    final_save_path = emit_filename(save_path, image_size);
+    print("Preparing image file {}".format(final_save_path))
     img = grid2img(samples, rows, cols, not tight)
-    img.save(save_path)
+    img.save(final_save_path)
 
 
 def surround_anchors(rows, cols, anchors, rand_anchors):
@@ -244,9 +264,12 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
             anchor_images = anchor_images[:args.numanchors]
 
     if args.passthrough:
-        print('Preparing image grid...')
+        # determine final filename string
+        image_size = anchor_images[0].shape[1]
+        save_path = emit_filename(cur_save_path, image_size);
+        print("Preparing image file {}".format(save_path))
         img = grid2img(anchor_images, args.rows, args.cols, not args.tight)
-        img.save(cur_save_path)
+        img.save(save_path)
         sys.exit(0)
 
     if dmodel is None:
