@@ -80,10 +80,12 @@ def generate_latent_grid(z_dim, rows, cols, fan, gradient, spherical, gaussian, 
     return z
 
 # this function can fill in placeholders for %DATE%, %SIZE% and %SEQ%
-def emit_filename(filename, image_size):
+def emit_filename(filename, args, image_size):
     datestr = datetime.datetime.now().strftime("%Y%m%d")
     filename = filename.replace('%DATE%', datestr)
     filename = filename.replace('%SIZE%', "{:d}".format(image_size))
+    if args is not None:
+        filename = filename.replace('%OFFSET%', "{:d}".format(args.offset))
     if '%SEQ%' in filename:
         # determine what the next available number is
         cur_seq = 1
@@ -94,7 +96,7 @@ def emit_filename(filename, image_size):
         filename = candidate
     return filename
 
-def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, batch_size=24):
+def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, args=None, batch_size=24):
     z_queue = z[:]
     samples = None
     # print("========> DECODING {} at a time".format(batch_size))
@@ -120,7 +122,7 @@ def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, sa
 
     # each sample is 3xsizexsize
     image_size = one_sample.shape[1]
-    final_save_path = emit_filename(save_path, image_size);
+    final_save_path = emit_filename(save_path, args, image_size);
     print("Preparing image file {}".format(final_save_path))
     img = grid2img(samples, rows, cols, not tight)
     img.save(final_save_path)
@@ -272,11 +274,12 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
         files = real_glob(args.anchor_glob)
         if args.offset > 0:
             files = files[args.offset:]
-        if args.stepsize > 0:
+        if args.stepsize > 1:
             files = files[::args.stepsize]
         if args.numanchors is not None:
             files = files[:args.numanchors]
         anchor_images = anchors_from_filelist(files)
+        print("Read {} images from {} files".format(len(anchor_images), len(files)))
 
     if cur_anchor_image is not None:
         _, _, anchor_images = anchors_from_image(cur_anchor_image, image_size=(args.image_size, args.image_size))
@@ -290,7 +293,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
     if args.passthrough:
         # determine final filename string
         image_size = anchor_images[0].shape[1]
-        save_path = emit_filename(cur_save_path, image_size);
+        save_path = emit_filename(cur_save_path, args, image_size);
         print("Preparing image file {}".format(save_path))
         img = grid2img(anchor_images, args.rows, args.cols, not args.tight)
         img.save(save_path)
@@ -374,7 +377,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
     if global_offset is not None:
         z = z + global_offset
 
-    grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args.batch_size)
+    grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args, args.batch_size)
     return dmodel
 
 def main(cliargs):
@@ -440,7 +443,7 @@ def main(cliargs):
     parser.add_argument('--invert-anchors', dest='invert_anchors',
                         default=False, action='store_true',
                         help="Use antipode of given anchors.")
-    parser.add_argument("--numanchors", type=int, default=150,
+    parser.add_argument("--numanchors", type=int, default=None,
                         help="number of anchors to generate")
     parser.add_argument('--dataset', dest='dataset', default=None,
                         help="Dataset for anchors.")
