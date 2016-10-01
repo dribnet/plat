@@ -9,9 +9,11 @@ import sys
 import json
 import datetime
 import os
+import glob
+from braceexpand import braceexpand
 
 from plat.grid_layout import grid2img, create_gradient_grid, create_mine_grid, create_chain_grid, create_fan_grid
-from plat.utils import anchors_from_image, get_json_vectors, offset_from_string
+from plat.utils import anchors_from_image, anchors_from_filelist, get_json_vectors, offset_from_string
 
 import importlib
 g_image_size = 128
@@ -26,6 +28,12 @@ def lazy_init_fuel_dependencies():
         print e
         exit(1);
 
+def real_glob(rglob):
+    glob_list = braceexpand(rglob)
+    files = []
+    for g in glob_list:
+        files = files + glob.glob(g)
+    return files
 
 # returns new version of images, rows, cols
 def add_shoulders(images, anchor_images, rows, cols):
@@ -104,8 +112,14 @@ def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, sa
     if shoulders:
         samples, rows, cols = add_shoulders(samples, anchor_images, rows, cols)
 
+    try:
+        one_sample = next(item for item in samples if item is not None)
+    except StopIteration:
+        print("No samples found to save")
+        return
+
     # each sample is 3xsizexsize
-    image_size = samples[0].shape[1]
+    image_size = one_sample.shape[1]
     final_save_path = emit_filename(save_path, image_size);
     print("Preparing image file {}".format(final_save_path))
     img = grid2img(samples, rows, cols, not tight)
@@ -253,6 +267,16 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
             include_targets = True
             prohibited = map(int, args.prohibited.split(","))
         anchor_images = get_anchor_images(args.dataset, args.split, args.offset, args.stepsize, args.numanchors, allowed, prohibited, args.image_size, args.color_convert, include_targets=include_targets)
+
+    if args.anchor_glob is not None:
+        files = real_glob(args.anchor_glob)
+        if args.offset > 0:
+            files = files[args.offset:]
+        if args.stepsize > 0:
+            files = files[::args.stepsize]
+        if args.numanchors is not None:
+            files = files[:args.numanchors]
+        anchor_images = anchors_from_filelist(files)
 
     if cur_anchor_image is not None:
         _, _, anchor_images = anchors_from_image(cur_anchor_image, image_size=(args.image_size, args.image_size))
@@ -407,6 +431,8 @@ def main(cliargs):
                         help="spacing of mine grid, w & h must be multiples +1")
     parser.add_argument('--anchors', dest='anchors', default=False, action='store_true',
                         help="use reconstructed images instead of random ones")
+    parser.add_argument('--anchor-glob', dest='anchor_glob', default=None,
+                        help="use file glob source of anchors")
     parser.add_argument('--anchor-image', dest='anchor_image', default=None,
                         help="use image as source of anchors")
     parser.add_argument('--anchor-vectors', dest='anchor_vectors', default=None,

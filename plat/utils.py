@@ -37,6 +37,23 @@ def anchors_from_image(fname, channels=3, image_size=(64,64), unit_scale=True):
 
     return steps_y, steps_x, np.array(datastream_images)
 
+def anchors_from_filelist(filelist, channels=3, unit_scale=True):
+    """Get a series of images a list of files"""
+    datastream_images = []
+    for fname in filelist:
+
+        rawim = imread(fname);
+        dimension = len(rawim.shape)
+        if dimension >= 3:
+            entry = np.asarray([rawim[:,:,0], rawim[:,:,1], rawim[:,:,2]])
+        else:
+            entry = np.asarray([rawim[:,:], rawim[:,:], rawim[:,:]])
+
+        if unit_scale:
+            entry = (entry / 255.0).astype('float32')
+        datastream_images.append(entry)
+    return np.array(datastream_images)
+
 def get_json_vectors(filename):
     """Return np array of vectors from json source"""
     with open(filename) as json_file:
