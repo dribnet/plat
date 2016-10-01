@@ -238,7 +238,8 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
         _, _, anchor_images = anchors_from_image(cur_anchor_image, image_size=(args.image_size, args.image_size))
         if args.offset > 0:
             anchor_images = anchor_images[args.offset:]
-        # untested
+        if args.stepsize > 0:
+            anchor_images = anchor_images[::args.stepsize]
         if args.numanchors is not None:
             anchor_images = anchor_images[:args.numanchors]
 
