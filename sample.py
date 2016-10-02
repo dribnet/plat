@@ -16,17 +16,6 @@ from plat.utils import anchors_from_image, get_json_vectors, offset_from_string
 import importlib
 g_image_size = 128
 
-def lazy_init_fuel_dependencies():
-    try:
-        from chips.fuel_helper import get_dataset_iterator, get_anchor_images
-        return get_dataset_iterator, get_anchor_images
-    except ImportError as e:
-        # raise ImportError('<any message you want here>')
-        print("Error: Failed fuel dependency")
-        print e
-        exit(1);
-
-
 # returns new version of images, rows, cols
 def add_shoulders(images, anchor_images, rows, cols):
     n_anchors = len(anchor_images)

@@ -17,3 +17,7 @@ target/
 .ipynb_checkpoints
 
 outputs
+
+# junk
+.DS_Store
+._.DS_Store

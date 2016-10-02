@@ -11,8 +11,7 @@ import datetime
 import os
 import importlib
 
-from chips.fuel_helper import get_anchor_images
-
+from plat.fuel_helper import get_anchor_images
 from plat.grid_layout import grid2img
 from plat.utils import anchors_from_image, anchors_from_filelist, get_json_vectors
 import plat.sampling
