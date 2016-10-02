@@ -144,8 +144,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
     plat.sampling.grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args, args.batch_size)
     return dmodel
 
-def main(cliargs):
-    parser = argparse.ArgumentParser(description="Plot model samples")
+def plat_sample(parser, context, args):
     parser.add_argument("--interface", dest='model_class', type=str,
                         default="plat.interface.discgen.DiscGenModel", help="class encapsulating model")
     parser.add_argument("--model", dest='model', type=str, default=None,
@@ -245,7 +244,7 @@ def main(cliargs):
                         help="variable that gets stepped each template step")
     parser.add_argument('--z-initial', dest='z_initial', default=0.0, type=float,
                         help="initial value of variable stepped each template step")
-    args = parser.parse_args(cliargs)
+    args = parser.parse_args(args)
 
     dmodel = None
     cur_z_step = args.z_initial
@@ -264,4 +263,5 @@ def main(cliargs):
             cur_z_step += args.z_step
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(description="Plot model samples")
+    plat_sample(parser, None, sys.argv[1:])
