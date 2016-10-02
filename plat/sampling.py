@@ -76,6 +76,8 @@ def emit_filename(filename, args, image_size):
     filename = filename.replace('%SIZE%', "{:d}".format(image_size))
     if args is not None:
         filename = filename.replace('%OFFSET%', "{:d}".format(args.offset))
+        filename = filename.replace('%ROWS%', "{:d}".format(args.rows))
+        filename = filename.replace('%COLS%', "{:d}".format(args.cols))
     if '%SEQ%' in filename:
         # determine what the next available number is
         cur_seq = 1
