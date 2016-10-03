@@ -35,7 +35,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
         anchor_images = get_anchor_images(args.dataset, args.split, args.offset, args.stepsize, args.numanchors, allowed, prohibited, args.image_size, args.color_convert, include_targets=include_targets)
 
     if args.anchor_glob is not None:
-        files = real_glob(args.anchor_glob)
+        files = plat.sampling.real_glob(args.anchor_glob)
         if args.offset > 0:
             files = files[args.offset:]
         if args.stepsize > 1:

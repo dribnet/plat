@@ -185,8 +185,7 @@ def save_json_attribs(attribs, filename):
     with open(filename, 'w') as outfile:
         json.dump(attribs.tolist(), outfile)   
 
-def main(cliargs):
-    parser = argparse.ArgumentParser(description="Plot model samples")
+def atvec(parser, context, args):
     parser.add_argument('--dataset', dest='dataset', default=None,
                         help="Source dataset (for labels).")
     parser.add_argument('--split', dest='split', default="train",
@@ -205,7 +204,7 @@ def main(cliargs):
                         help="Two lists of vectors to average and then diff")
     parser.add_argument('--outfile', dest='outfile', default=None,
                         help="Output json file for vectors.")
-    args = parser.parse_args(cliargs)
+    args = parser.parse_args(args)
 
     if args.avg_diff:
         vecs1, vecs2 = args.avg_diff.split(",")
@@ -246,4 +245,5 @@ def main(cliargs):
         save_json_attribs(atvects, args.outfile)
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(description="Plot model samples")
+    atvec(parser, None, sys.argv[1:])
