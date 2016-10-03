@@ -57,7 +57,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
     if args.passthrough:
         # determine final filename string
         image_size = anchor_images[0].shape[1]
-        save_path = emit_filename(cur_save_path, args, image_size);
+        save_path = plat.sampling.emit_filename(cur_save_path, args, image_size);
         print("Preparing image file {}".format(save_path))
         img = grid2img(anchor_images, args.rows, args.cols, not args.tight)
         img.save(save_path)
