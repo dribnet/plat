@@ -75,7 +75,11 @@ def emit_filename(filename, args, image_size):
     filename = filename.replace('%DATE%', datestr)
     filename = filename.replace('%SIZE%', "{:d}".format(image_size))
     if args is not None:
-        filename = filename.replace('%MODEL%', "{}".format(args.model.replace(".", "_")))
+        if args.model:
+            model = args.model.replace(".", "_")
+        else:
+            model = "NoModel"
+        filename = filename.replace('%MODEL%', model)
         filename = filename.replace('%OFFSET%', "{:d}".format(args.offset))
         filename = filename.replace('%ROWS%', "{:d}".format(args.rows))
         filename = filename.replace('%COLS%', "{:d}".format(args.cols))

@@ -74,7 +74,6 @@ def load_model(model=None, model_file_name=None, model_type=None, model_interfac
 # this obviously won't scale, but is fine for now
 model_download_table = {
     "celeba_64.discgen": "http://drib.net/platzoo/celeba_64_v1.0.0.discgen.gz"
-    # "celeba_64.discgen": "http://drib.net/platzoo/test.gz"
 }
 
 def download_model(model_name):

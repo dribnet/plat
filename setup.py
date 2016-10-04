@@ -4,7 +4,10 @@ from setuptools import find_packages
 install_requires = [
     'numpy',
     'scipy',
-    'Pillow'
+    'Pillow',
+    'arghandler',
+    'braceexpand',
+    'fuel'
 ]
 
 setup(name='plat',
@@ -15,5 +18,8 @@ setup(name='plat',
       url='https://github.com/dribnet/plat',
       download_url='https://github.com/dribnet/plat/tarball/0.1.0',
       license='MIT',
+      entry_points={
+          'console_scripts': ['plat = plat.bin.platcmd:main']
+      },
       install_requires=install_requires,
       packages=find_packages())
