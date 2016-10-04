@@ -1,6 +1,6 @@
 ### This is a documented example of a model interface compatible with plat.
 
-class SampleModel:
+class ExampleModel:
     def __init__(self, filename=None, model=None):
         """
         Initializate class give either a filename or a model

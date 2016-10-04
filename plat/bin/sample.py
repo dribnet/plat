@@ -138,9 +138,9 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
     plat.sampling.grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args, args.batch_size)
     return dmodel
 
-def plat_sample(parser, context, args):
+def sample(parser, context, args):
     parser.add_argument("--interface", dest='model_class', type=str,
-                        default="discgen.interface.DiscGenModel", help="class encapsulating model")
+                        default=None, help="class encapsulating model")
     parser.add_argument("--model", dest='model', type=str, default=None,
                         help="name of model in plat zoo")
     parser.add_argument("--model-file", dest='model_file', type=str, default=None,
@@ -148,13 +148,13 @@ def plat_sample(parser, context, args):
     parser.add_argument("--model-type", dest='model_type', type=str, default=None,
                         help="the type of model (usually inferred from filename)")
     parser.add_argument("--model-interface", dest='model_interface', type=str,
-                        default="discgen.interface.DiscGenModel",
+                        default=None,
                         help="class interface for model (usually inferred from model-type)")
-    parser.add_argument("--rows", type=int, default=5,
+    parser.add_argument("--rows", type=int, default=3,
                         help="number of rows of samples to display")
-    parser.add_argument("--cols", type=int, default=5,
+    parser.add_argument("--cols", type=int, default=6,
                         help="number of columns of samples to display")
-    parser.add_argument("--save-path", type=str, default=None,
+    parser.add_argument("--save-path", type=str, default="plat_%DATE%_%MODEL%_%SEQ%.png",
                         help="where to save the generated samples")
     parser.add_argument('--fan', dest='fan', default=False, action='store_true')
     parser.add_argument('--analogy', dest='analogy', default=False, action='store_true')
@@ -247,6 +247,10 @@ def plat_sample(parser, context, args):
                         help="initial value of variable stepped each template step")
     args = parser.parse_args(args)
 
+    # check for model download first
+    if args.model is not None:
+        zoo.check_model_download(args.model)
+
     dmodel = None
     cur_z_step = args.z_initial
     if args.range is None:
@@ -265,4 +269,4 @@ def plat_sample(parser, context, args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Plot model samples")
-    plat_sample(parser, None, sys.argv[1:])
+    sample(parser, None, sys.argv[1:])

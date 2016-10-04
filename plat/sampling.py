@@ -75,6 +75,7 @@ def emit_filename(filename, args, image_size):
     filename = filename.replace('%DATE%', datestr)
     filename = filename.replace('%SIZE%', "{:d}".format(image_size))
     if args is not None:
+        filename = filename.replace('%MODEL%', "{}".format(args.model.replace(".", "_")))
         filename = filename.replace('%OFFSET%', "{:d}".format(args.offset))
         filename = filename.replace('%ROWS%', "{:d}".format(args.rows))
         filename = filename.replace('%COLS%', "{:d}".format(args.cols))
@@ -115,7 +116,7 @@ def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, sa
     # each sample is 3xsizexsize
     image_size = one_sample.shape[1]
     final_save_path = emit_filename(save_path, args, image_size);
-    print("Preparing image file {}".format(final_save_path))
+    print("Saving image file {}".format(final_save_path))
     img = grid2img(samples, rows, cols, not tight)
     img.save(final_save_path)
 

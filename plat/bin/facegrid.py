@@ -184,7 +184,7 @@ def main(cliargs):
         _, _, extra_images = anchors_from_image(args.seeds_image, image_size=(image_size, image_size), unit_scale=False)
         net_inputs = (extra_images / 255.0).astype('float32')
 
-        print('Loading saved model...')
+        print('Loading saved model')
         ModelClass = getattr(importlib.import_module(args.model_module), args.model_class)
         dmodel = ModelClass(filename=args.model)
 
