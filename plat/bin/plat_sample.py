@@ -9,12 +9,12 @@ import sys
 import json
 import datetime
 import os
-import importlib
 
 from plat.fuel_helper import get_anchor_images
 from plat.grid_layout import grid2img
 from plat.utils import anchors_from_image, anchors_from_filelist, get_json_vectors
 import plat.sampling
+from plat import zoo
 
 def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
     if args.seed is not None:
@@ -64,13 +64,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
         sys.exit(0)
 
     if dmodel is None:
-        model_class_parts = args.model_class.split(".")
-        model_class_name = model_class_parts[-1]
-        model_module_name = ".".join(model_class_parts[:-1])
-        print("Loading {} interface from {}".format(model_class_name, model_module_name))        
-        ModelClass = getattr(importlib.import_module(model_module_name), model_class_name)
-        print("Loading model from {}".format(args.model))
-        dmodel = ModelClass(filename=args.model)
+        dmodel = zoo.load_model(args.model, args.model_file, args.model_type, args.model_interface)
 
     if anchor_images is not None:
         x_queue = anchor_images[:]
@@ -146,9 +140,16 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
 
 def plat_sample(parser, context, args):
     parser.add_argument("--interface", dest='model_class', type=str,
-                        default="plat.interface.discgen.DiscGenModel", help="class encapsulating model")
+                        default="discgen.interface.DiscGenModel", help="class encapsulating model")
     parser.add_argument("--model", dest='model', type=str, default=None,
+                        help="name of model in plat zoo")
+    parser.add_argument("--model-file", dest='model_file', type=str, default=None,
                         help="path to the saved model")
+    parser.add_argument("--model-type", dest='model_type', type=str, default=None,
+                        help="the type of model (usually inferred from filename)")
+    parser.add_argument("--model-interface", dest='model_interface', type=str,
+                        default="discgen.interface.DiscGenModel",
+                        help="class interface for model (usually inferred from model-type)")
     parser.add_argument("--rows", type=int, default=5,
                         help="number of rows of samples to display")
     parser.add_argument("--cols", type=int, default=5,
@@ -193,7 +194,7 @@ def plat_sample(parser, context, args):
     parser.add_argument('--chain', dest='chain', default=False, action='store_true')
     parser.add_argument('--encircle', dest='encircle', default=False, action='store_true')
     parser.add_argument('--partway', dest='partway', type=float, default=None)
-    parser.add_argument("--spacing", type=int, default=3,
+    parser.add_argument("--spacing", type=int, default=1,
                         help="spacing of mine grid, w & h must be multiples +1")
     parser.add_argument('--anchors', dest='anchors', default=False, action='store_true',
                         help="use reconstructed images instead of random ones")
