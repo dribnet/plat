@@ -79,9 +79,13 @@ def emit_filename(filename, args, image_size):
             model = args.model.replace(".", "_")
         else:
             model = "NoModel"
+        if args.seed:
+            seed = "{:d}".format(args.seed)
+        else:
+            seed = "NoSeed"
         filename = filename.replace('%MODEL%', model)
         filename = filename.replace('%OFFSET%', "{:d}".format(args.offset))
-        filename = filename.replace('%SEED%', "{:d}".format(args.seed))
+        filename = filename.replace('%SEED%', seed)
         filename = filename.replace('%ROWS%', "{:d}".format(args.rows))
         filename = filename.replace('%COLS%', "{:d}".format(args.cols))
     if '%SEQ%' in filename:
