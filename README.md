@@ -1,38 +1,92 @@
 # plat (v): plan out or make a map of
 
-Utilities for exploring generative latent spaces.
-
-Currently aiming to support techniques as described in the
+Utilities for exploring generative latent spaces as described in the
 [Sampling Generative Networks](http://arxiv.org/abs/1609.04468) paper.
 
+## Quickstart
 
-## Installation
-
-```bash
-pip install plat
+Install this library, code supporting a model type, and go.
 ```
-
-## Examples
-
-plat can sample from a growing list of models in its model zoo. Each model type
-will almost certainly have separate dependencies. For example, if
-[discgen](https://github.com/dribnet/discgen) is installed then the
-following would generate a random sampling of the model:
+$ pip install plat
+$ pip install git+https://github.com/dribnet/discgen.git \
+  -r https://raw.githubusercontent.com/dribnet/discgen/master/requirements.txt
+$ plat sample --model celeba_64.discgen
+Model celeba_64.discgen will be downloaded. Continue? [Y/n] y
+Saving image file plat_20161006_celeba_64_discgen_01.png
 ```
-plat sample \
-  --model celeba_64.discgen
-```
+![output image](examples/quickstart.jpg "plat output")
 
-It's also possible to run plat on new types of models by specifing he interface
-class directly. Here's an example of how to use `plat sample` to generate a (random)
-MINE grid from an iGAN model:
+## Sampling Examples
+
+By default, plat does a random sampling. The output file will be automatically
+generated, or can be given explicitly. To make the results repeatable,
+you can also specify a random seed.
+
+```
+$ plat sample \
+  --model celeba_64.discgen \
+  --seed 1 \
+  --outfile examples/random_sample.jpg
+```
+![output image](examples/random_sample.jpg "random sample")
+
+The number of rows and columns can be specified. Interpolation is
+done by specifying the spacing between samples.
+
+```
+$ plat sample \
+  --model celeba_64.discgen \
+  --seed 1 \
+  --rows 1 --cols 7 \
+  --spacing 6 \
+  --outfile examples/random_interpolation.jpg
+```
+![output image](examples/random_interpolation.jpg "random interpolation")
+
+Interpolation can be done across multiple points in two dimensions to
+create a mine grid (details in [paper](http://arxiv.org/abs/1609.04468)).
+
+```
+$ plat sample \
+  --model celeba_64.discgen \
+  --seed 1 \
+  --rows 3 --cols 7 \
+  --spacing 3 \
+  --outfile examples/random_mine_grid.jpg
+```
+![output image](examples/random_mine_grid.jpg "random mine grid")
+
+There are many more options to explore. When experimenting, it can be
+useful to use a templated output filename.
+
+```
+$ plat sample \
+  --model celeba_64.discgen \
+  --seed 17 \
+  --tight \
+  --rows 3 --cols 7 \
+  --spacing 2 \
+  --outfile examples/%DATE%_experiment_s%SEED%_%SEQ%.jpg
+```
+![output image](examples/20161006_experiment_s17_01.jpg "experiment")
+
+## Model types
+plat comes with access to a growing list of models and model types in its model zoo.
+Each model type will have separate dependencies.
+
+It's also possible to run plat on new types of models by providing a simple plat interface.
+There are [a few examples](plat/interface) and a [template](plat/interface/example.py)
+to get started. Here's an example of how to use `plat sample` with a manually specified
+model interface to generate a (random) mine grid from an [iGAN](https://github.com/junyanz/iGAN) model:
 
 ```bash
 PYTHONPATH=. plat sample \
   --model-interface plat.interface.igan.IganModel \
   --model-file models/shoes_64.dcgan_theano \
   --uniform \
-  --rows 7 --cols 13 --tight --mine --spacing 3 \
+  --rows 4 --cols 10 \
+  --tight --spacing 3 \
   --image-size 64 \
   --seed 1
 ```
+![output image](examples/igan_mine_grid.jpg "igan mine grid")
