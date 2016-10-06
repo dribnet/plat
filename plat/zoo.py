@@ -112,7 +112,7 @@ def download_model(model_name):
     # symlink, removing old first if necessary
     if os.path.exists(final_local_linkpath):
         os.remove(final_local_linkpath)
-    os.symlink(final_local_filepath, final_local_linkpath)
+    os.symlink(local_filename, final_local_linkpath)
 
     # cleanup temp directory
     # TODO: try/catch the download for failure cleanup
