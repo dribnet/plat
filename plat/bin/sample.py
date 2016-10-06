@@ -116,7 +116,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
     z_dim = dmodel.get_zdim()
     # I don't remember what partway/encircle do so they are not handling the chain layout
     # this handles the case (at least) of mines with random anchors
-    if (args.partway is not None) or args.encircle or (args.mine and anchors is None):
+    if (args.partway is not None) or args.encircle or (anchors is None):
         srows=((args.rows // args.spacing) + 1)
         scols=((args.cols // args.spacing) + 1)
         rand_anchors = plat.sampling.generate_latent_grid(z_dim, rows=srows, cols=scols, fan=False, gradient=False,
@@ -131,7 +131,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
         else:
             anchors = rand_anchors
     z = plat.sampling.generate_latent_grid(z_dim, args.rows, args.cols, args.fan, args.gradient, not args.linear, args.gaussian,
-            anchors, anchor_images, args.mine, args.chain, args.spacing, args.analogy)
+            anchors, anchor_images, True, args.chain, args.spacing, args.analogy)
     if global_offset is not None:
         z = z + global_offset
 
@@ -152,9 +152,9 @@ def sample(parser, context, args):
                         help="class interface for model (usually inferred from model-type)")
     parser.add_argument("--rows", type=int, default=3,
                         help="number of rows of samples to display")
-    parser.add_argument("--cols", type=int, default=6,
+    parser.add_argument("--cols", type=int, default=7,
                         help="number of columns of samples to display")
-    parser.add_argument("--save-path", type=str, default="plat_%DATE%_%MODEL%_%SEQ%.png",
+    parser.add_argument("--outfile", dest='save_path', type=str, default="plat_%DATE%_%MODEL%_%SEQ%.png",
                         help="where to save the generated samples")
     parser.add_argument('--fan', dest='fan', default=False, action='store_true')
     parser.add_argument('--analogy', dest='analogy', default=False, action='store_true')
@@ -190,12 +190,11 @@ def sample(parser, context, args):
     parser.add_argument('--tight', dest='tight', default=False, action='store_true')
     parser.add_argument("--seed", type=int,
                 default=None, help="Optional random seed")
-    parser.add_argument('--mine', dest='mine', default=False, action='store_true')
     parser.add_argument('--chain', dest='chain', default=False, action='store_true')
     parser.add_argument('--encircle', dest='encircle', default=False, action='store_true')
     parser.add_argument('--partway', dest='partway', type=float, default=None)
     parser.add_argument("--spacing", type=int, default=1,
-                        help="spacing of mine grid, w & h must be multiples +1")
+                        help="spacing of mine grid, rows,cols must be multiples of spacing +1")
     parser.add_argument('--anchors', dest='anchors', default=False, action='store_true',
                         help="use reconstructed images instead of random ones")
     parser.add_argument('--anchor-glob', dest='anchor_glob', default=None,
@@ -237,7 +236,7 @@ def sample(parser, context, args):
                         help="size of (offset) images")
     parser.add_argument('--anchor-image-template', dest='anchor_image_template', default=None,
                         help="template for anchor image filename")
-    parser.add_argument('--save-path-template', dest='save_path_template', default=None,
+    parser.add_argument('--outfile-template', dest='save_path_template', default=None,
                         help="template for save path filename")
     parser.add_argument('--range', dest='range', default=None,
                         help="low,high integer range for tempalte run")
