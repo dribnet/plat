@@ -7,6 +7,7 @@ import numpy as np
 import random
 import sys
 import json
+import math
 import datetime
 import os
 import glob
@@ -167,6 +168,51 @@ def anchors_from_offsets(anchor, offsets, x_indices_str, y_indices_str, x_minsca
     newanchors.append(anchor + x_minscale * x_offset + y_maxscale * y_offset)
     newanchors.append(anchor + x_maxscale * x_offset + y_minscale * y_offset)
     newanchors.append(anchor + x_maxscale * x_offset + y_maxscale * y_offset)
+    return np.array(newanchors)
+
+def compute_wave(offset):
+    # sine wave from 0-1 to 0-1. 0 outside of [0,1]
+    if offset < 0.0 or offset > 1.0:
+        return 0
+    else:
+        return 0.5 * (1.0 - math.cos(offset * 2 * math.pi))
+
+def anchors_wave_offsets(anchors, offsets, rows, cols, spacing, z_step, x_indices_str, x_minscale, x_maxscale):
+    from plat.interpolate import lerp
+
+    only_anchor = None
+    if len(anchors) == 1:
+        only_anchor = anchors[0]
+
+    dim = len(anchors[0])
+    x_offset = offset_from_string(x_indices_str, offsets, dim)
+
+    num_row_anchors = (rows + spacing - 1) / spacing
+    num_col_anchors = (cols + spacing - 1) / spacing
+
+    newanchors = []
+    cur_anchor_index = 0
+    for j in range(num_row_anchors):
+        for i in range(num_col_anchors):
+            if only_anchor is None:
+                cur_anchor = anchors[cur_anchor_index]
+                cur_anchor_index += 1
+            else:
+                cur_anchor = only_anchor
+            x_frac = float(i) / num_col_anchors
+            wave_val = z_step + x_frac
+            n1 = compute_wave(wave_val)
+            x_scale = lerp(n1, x_minscale, x_maxscale)
+            # if wave_val < 0.0 or wave_val > 1.0:
+            #     x_scale = x_minscale
+            # else:
+            #     if wave_val < 0.5:
+            #         n1 = wave_val * 2
+            #     else:
+            #         n1 = (1.0 - wave_val) * 2
+            #     x_scale = lerp(n1, x_minscale, x_maxscale)
+            # print("{}, {} produced {} -> {}, {} = {}".format(i,j,n1,x_minscale, x_maxscale,x_scale))
+            newanchors.append(cur_anchor + x_scale * x_offset)
     return np.array(newanchors)
 
 def anchors_noise_offsets(anchors, offsets, rows, cols, spacing, z_step, x_indices_str, y_indices_str, x_minscale, y_minscale, x_maxscale, y_maxscale):

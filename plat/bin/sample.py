@@ -99,7 +99,11 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
     if args.anchor_offset is not None:
         # compute anchors as offsets from existing anchor
         offsets = get_json_vectors(args.anchor_offset)
-        if args.anchor_noise:
+        if args.anchor_wave:
+            anchors = plat.sampling.anchors_wave_offsets(anchors, offsets, args.rows, args.cols, args.spacing,
+                cur_z_step, args.anchor_offset_x,
+                args.anchor_offset_x_minscale, args.anchor_offset_x_maxscale)
+        elif args.anchor_noise:
             anchors = plat.sampling.anchors_noise_offsets(anchors, offsets, args.rows, args.cols, args.spacing,
                 cur_z_step, args.anchor_offset_x, args.anchor_offset_y,
                 args.anchor_offset_x_minscale, args.anchor_offset_y_minscale, args.anchor_offset_x_maxscale, args.anchor_offset_y_maxscale)
@@ -180,6 +184,8 @@ def sample(parser, context, args):
                         help="scaling factor for min x offset")
     parser.add_argument('--anchor-offset-y-maxscale', dest='anchor_offset_y_maxscale', default=2.0, type=float,
                         help="scaling factor for min y offset")
+    parser.add_argument('--anchor-wave', dest='anchor_wave', default=False, action='store_true',
+                        help="interpret anchor offsets as wave paramaters")
     parser.add_argument('--anchor-noise', dest='anchor_noise', default=False, action='store_true',
                         help="interpret anchor offsets as noise paramaters")
     parser.add_argument('--gradient', dest='gradient', default=False, action='store_true')
