@@ -111,7 +111,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
         offsets = get_json_vectors(args.global_offset)
         if args.global_ramp:
             offsets = cur_z_step * offsets
-        global_offset =  get_global_offset(offsets, args.global_indices, args.global_scale)
+        global_offset =  plat.sampling.get_global_offset(offsets, args.global_indices, args.global_scale)
 
     z_dim = dmodel.get_zdim()
     # I don't remember what partway/encircle do so they are not handling the chain layout
@@ -262,7 +262,6 @@ def sample(parser, context, args):
             else:
                 cur_anchor_image = args.anchor_image
             cur_save_path = args.save_path_template.format(i)
-            print("Saving: {}".format(cur_save_path))
             dmodel = run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step)
             cur_z_step += args.z_step
 
