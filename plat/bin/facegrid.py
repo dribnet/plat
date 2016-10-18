@@ -9,7 +9,7 @@ import sys
 from PIL import Image
 from annoy import AnnoyIndex
 from sklearn.manifold import TSNE
-from fuel_helper import get_anchor_images
+from plat.fuel_helper import get_anchor_images
 from plat.utils import anchors_from_image, json_list_to_array
 
 def build_annoy_index(encoded, outfile):
@@ -93,7 +93,7 @@ def neighbors_to_rfgrid(neighbors, encoded, imdata, gsize, gridw, gridh):
     # debug_save_plot(xy, "plot.png")
 
     from rasterfairy import rasterfairy
-    grid_xy, quadrants = rasterfairy.transformPointCloud2D(xy,target=(gridw,gridh))
+    grid_xy, wh, quadrants = rasterfairy.transformPointCloud2D(xy,target=(gridw,gridh))
     indices = []
     for i in range(gridw * gridh):
         indices.append(quadrants[i]["indices"][0])
