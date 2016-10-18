@@ -148,14 +148,16 @@ def surround_anchors(rows, cols, anchors, rand_anchors):
 def vector_to_json_array(v):
     return json.dumps(v.tolist())
 
-def output_vectors(vectors):
+def output_vectors(vectors, outfile):
     print("VECTOR OUTPUT BEGIN")
-    print("JSON#[")
+    f_out = open(outfile, 'w+')
+    f_out.write("[\n")
     for v in vectors[:-1]:
-        print("JSON#{},".format(vector_to_json_array(v)))
+        f_out.write("{}\n,".format(vector_to_json_array(v)))
     for v in vectors[-1:]:
-        print("JSON#{}".format(vector_to_json_array(v)))
-    print("JSON#]")
+        f_out.write("{}\n".format(vector_to_json_array(v)))
+    f_out.write("]\n")
+    f_out.close();
     print("VECTOR OUTPUT END")
 
 def anchors_from_offsets(anchor, offsets, x_indices_str, y_indices_str, x_minscale, y_minscale, x_maxscale, y_maxscale):
@@ -254,14 +256,15 @@ def get_global_offset(offsets, indices_str, scale):
     global_offset = offset_from_string(indices_str, offsets, dim)
     return scale * global_offset
 
-def stream_output_vectors(dmodel, dataset, split, batch_size=20, color_convert=False):
+def stream_output_vectors(dmodel, dataset, split, outfile=None, batch_size=20, color_convert=False):
     it = get_dataset_iterator(dataset, split)
     done = False
 
-    sys.stderr.write("Streaming output vectors to stdout (batch size={})\n".format(batch_size))
+    # sys.stderr.write("Streaming output vectors to stdout (batch size={})\n".format(batch_size))
 
     print("VECTOR OUTPUT BEGIN")
-    print("JSON#[")
+    f_out = open(outfile, 'w+')
+    f_out.write("[\n")
 
     num_output = 0
     while not done:
@@ -277,7 +280,7 @@ def stream_output_vectors(dmodel, dataset, split, batch_size=20, color_convert=F
             latents = dmodel.encode_images(anchors_input)
             num_output += len(latents)
             for v in latents:
-                print("JSON#{},".format(vector_to_json_array(v)))
+                f_out.write("{},\n".format(vector_to_json_array(v)))
         except StopIteration:
             # process any leftovers
             if len(anchors) > 0:
@@ -286,14 +289,15 @@ def stream_output_vectors(dmodel, dataset, split, batch_size=20, color_convert=F
                 num_output += len(latents)
                 # end cut-n-paste
                 for v in latents[:-1]:
-                    print("JSON#{},".format(vector_to_json_array(v)))
+                    f_out.write("{},\n".format(vector_to_json_array(v)))
                 for v in latents[-1:]:
-                    print("JSON#{}".format(vector_to_json_array(v)))
+                    f_out.write("{}\n".format(vector_to_json_array(v)))
             done = True
 
     # for v in vectors[-1:]:
     #     print("{}".format(vector_to_json_array(v)))
 
-    print("JSON#]")
+    f_out.write("]\n")
+    f_out.close();
     print("VECTOR OUTPUT END")
     sys.stderr.write("Done streaming {} vectors\n".format(num_output))

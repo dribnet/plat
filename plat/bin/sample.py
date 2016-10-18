@@ -90,9 +90,9 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
 
     if args.encoder:
         if anchors is not None:
-            plat.sampling.output_vectors(anchors)
+            plat.sampling.output_vectors(anchors, args.save_path)
         else:
-            plat.sampling.stream_output_vectors(dmodel, args.dataset, args.split, batch_size=args.batch_size)
+            plat.sampling.stream_output_vectors(dmodel, args.dataset, args.split, args.save_path, batch_size=args.batch_size)
         sys.exit(0)
 
     global_offset = None
