@@ -28,7 +28,8 @@ def resolve_model_type_from_filename(filename):
     model_type = filename_dot_parts[-1]
 
 model_interface_table = {
-    "discgen": "discgen.interface.DiscGenModel"
+    "discgen": "discgen.interface.DiscGenModel",
+    "ali": "ali.interface.AliModel"
 }
 
 def helpful_interface_message_exit(model_interface, e):
