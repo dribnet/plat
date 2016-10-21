@@ -11,6 +11,7 @@ from annoy import AnnoyIndex
 from sklearn.manifold import TSNE
 from plat.fuel_helper import get_anchor_images
 from plat.utils import anchors_from_image, json_list_to_array
+from plat import zoo
 
 def build_annoy_index(encoded, outfile):
     input_shape = encoded.shape
@@ -93,7 +94,7 @@ def neighbors_to_rfgrid(neighbors, encoded, imdata, gsize, gridw, gridh):
     # debug_save_plot(xy, "plot.png")
 
     from rasterfairy import rasterfairy
-    grid_xy, wh, quadrants = rasterfairy.transformPointCloud2D(xy,target=(gridw,gridh))
+    grid_xy, size_wh, quadrants = rasterfairy.transformPointCloud2D(xy,target=(gridw,gridh))
     indices = []
     for i in range(gridw * gridh):
         indices.append(quadrants[i]["indices"][0])
@@ -113,10 +114,16 @@ def neighbors_to_rfgrid(neighbors, encoded, imdata, gsize, gridw, gridh):
 
 def main(cliargs):
     parser = argparse.ArgumentParser(description="Plot model samples")
-    parser.add_argument("--model-module", dest='model_module', type=str,
-                        default="utils.interface", help="module encapsulating model")
-    parser.add_argument("--model-class", dest='model_class', type=str,
-                        default="DiscGenModel", help="class encapsulating model")
+    # models are only for seeds-image
+    parser.add_argument("--model", dest='model', type=str, default=None,
+                        help="name of model in plat zoo")
+    parser.add_argument("--model-file", dest='model_file', type=str, default=None,
+                        help="path to the saved model")
+    parser.add_argument("--model-type", dest='model_type', type=str, default=None,
+                        help="the type of model (usually inferred from filename)")
+    parser.add_argument("--model-interface", dest='model_interface', type=str,
+                        default=None,
+                        help="class interface for model (usually inferred from model-type)")
     parser.add_argument('--build-annoy', dest='build_annoy',
                         default=False, action='store_true')
     parser.add_argument("--jsons", type=str, default=None,
@@ -131,8 +138,6 @@ def main(cliargs):
                         help="Source dataset.")
     parser.add_argument('--seeds-image', dest='seeds_image', default=None,
                         help="image source of seeds")
-    parser.add_argument("--model", dest='model', type=str, default=None,
-                        help="model for encoding when seeds-images is enabled")
     parser.add_argument('--annoy-index', dest='annoy_index', default=None,
                         help="Annoy index.")
     parser.add_argument('--split', dest='split', default="all",
@@ -152,6 +157,10 @@ def main(cliargs):
     parser.add_argument('--range', dest='range', default="0",
                         help="Range of indexes to run.")
     args = parser.parse_args(cliargs)
+
+    # check for model download first
+    if args.model is not None:
+        zoo.check_model_download(args.model)
 
     encoded = json_list_to_array(args.jsons)
     # print(encoded.shape)
@@ -185,8 +194,7 @@ def main(cliargs):
         net_inputs = (extra_images / 255.0).astype('float32')
 
         print('Loading saved model')
-        ModelClass = getattr(importlib.import_module(args.model_module), args.model_class)
-        dmodel = ModelClass(filename=args.model)
+        dmodel = zoo.load_model(args.model, args.model_file, args.model_type, args.model_interface)
 
         image_vectors = dmodel.encode_images(net_inputs)
         num_extras = len(extra_images)
