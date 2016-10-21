@@ -12,40 +12,35 @@ JSON_SUBDIR="${JSON_SUBDIR:-models/celeba_dlib_64_160z_d4_11}"
 BATCH_SIZE="${BATCH_SIZE:-100}"
 IMAGE_SIZE="${IMAGE_SIZE:-64}"
 
-# MODEL="--model models/celeba_dlib_128_240z_d4_06/celeba_dlib_128_240z_d4_06.zip"
-# DATASET_VALUE='celeba_dlib_128'
-# JSON_SUBDIR='models/celeba_dlib_128_240z_d4_06'
-# BATCH_SIZE="240"
-# IMAGE_SIZE="128"
-
-
-# MODEL='--model-type discgen --model-file models/celeba_dlib_256_320z_d5_10/celeba_dlib_256_320z_d5_10.zip'
-# DATASET_VALUE='celeba_dlib_256_notest'
-# JSON_SUBDIR='models/celeba_dlib_256_320z_d5_10'
-# BATCH_SIZE="32"
-# IMAGE_SIZE="256"
-
 # called with offsetfile, offsetindex, outname
 function sample_vector {
   $PLATCMD sample \
   --rows 1 --cols 7 --tight --gradient --offset 0 --shoulder \
-  --anchors \
-  --dataset=$DATASET_VALUE \
-  --split valid \
+  --anchor-image /develop/data/composite/$IMAGE_SIZE/pm.png \
+  --image-size "$IMAGE_SIZE" \
   --numanchors 1 \
-  $MODEL_FILE \
-  $MODEL_INTERFACE \
+  $MODEL \
   --anchor-offset-x $2 --anchor-offset-x-minscale -1.0 --anchor-offset-x-maxscale 2.0 \
   --anchor-offset-y $2 --anchor-offset-y-minscale 0.0 --anchor-offset-y-maxscale 0.0 \
   --anchor-offset $1 \
-  --outfile $JSON_SUBDIR"/atvec_"$3"_reference.png"
+  --outfile $JSON_SUBDIR"/atvec_"$3"_male.png"
+
+  $PLATCMD sample \
+  --rows 1 --cols 7 --tight --gradient --offset 0 --shoulder \
+  --anchor-image /develop/data/composite/$IMAGE_SIZE/pf.png \
+  --image-size "$IMAGE_SIZE" \
+  --numanchors 1 \
+  $MODEL \
+  --anchor-offset-x $2 --anchor-offset-x-minscale -1.0 --anchor-offset-x-maxscale 2.0 \
+  --anchor-offset-y $2 --anchor-offset-y-minscale 0.0 --anchor-offset-y-maxscale 0.0 \
+  --anchor-offset $1 \
+  --outfile $JSON_SUBDIR"/atvec_"$3"_female.png"
 }
 
 # do train vectors
 if [ ! -f $JSON_SUBDIR/train_vectors.json ]; then
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --dataset=$DATASET_VALUE \
       --split train \
       --batch-size $BATCH_SIZE \
@@ -100,7 +95,7 @@ celeba_attribs=(
 # atvec all labels and a balanced male/smile/open mouth
 if [ ! -f "$JSON_SUBDIR/atvecs_all.json" ]; then
     $PLATCMD atvec --dataset=$DATASET_VALUE \
-      --dataset=celeba_dlib_128 \
+      --dataset "$DATASET_VALUE" \
       --split train \
       --num-attribs 40 \
       --encoded-vectors "$JSON_SUBDIR/train_vectors.json" \
@@ -113,7 +108,7 @@ fi
 
 if [ ! -f "$JSON_SUBDIR/atvecs_balanced_20_21_31.json" ]; then
     $PLATCMD atvec --dataset=$DATASET_VALUE \
-      --dataset=celeba_dlib_128 \
+      --dataset "$DATASET_VALUE" \
       --split train \
       --num-attribs 40 \
       --encoded-vectors $JSON_SUBDIR/train_vectors.json \
@@ -128,8 +123,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/unblurred_train_vectors_10k.json" ]; then
     # do train blur/unblur vectors
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --anchor-glob '/develop/data/celeba/dlib_aligned_'$IMAGE_SIZE'/00????.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
@@ -138,8 +132,7 @@ fi
 
 if [ ! -f "$JSON_SUBDIR/blurred1_train_vectors_10k.json" ]; then
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --anchor-glob '/develop/data/celeba/dlib_aligned_'$IMAGE_SIZE'_blur1/00????.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
@@ -148,8 +141,7 @@ fi
 
 if [ ! -f "$JSON_SUBDIR/blurred2_train_vectors_10k.json" ]; then
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --anchor-glob '/develop/data/celeba/dlib_aligned_'$IMAGE_SIZE'_blur2/00????.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
@@ -175,8 +167,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/rafd_neutral_vectors.json" ]; then
     # rafd emotions
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --anchor-glob '/develop/data/rafd/aligned/'$IMAGE_SIZE'/*_neutral_*.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
@@ -187,8 +178,7 @@ for EMOTION in "angry" "contemptuous" "disgusted" "fearful" "happy" "sad" "surpr
 
     if [ ! -f "$JSON_SUBDIR/rafd_"$EMOTION"_vectors.json" ]; then
         $PLATCMD sample \
-          $MODEL_FILE \
-          $MODEL_INTERFACE \
+          $MODEL \
           --anchor-glob '/develop/data/rafd/aligned/'$IMAGE_SIZE'/*_'$EMOTION'_*.png' \
           --batch-size $BATCH_SIZE \
           --encoder \
@@ -207,8 +197,7 @@ done
 if [ ! -f "$JSON_SUBDIR/rafd_eye_straight_vectors.json" ]; then
     # rafd emotions
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --anchor-glob '/develop/data/rafd/aligned/'$IMAGE_SIZE'/*_frontal.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
@@ -218,8 +207,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/rafd_eye_right_vectors.json" ]; then
     # rafd emotions
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --anchor-glob '/develop/data/rafd/aligned/'$IMAGE_SIZE'/*_right.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
@@ -229,8 +217,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/rafd_eye_left_vectors.json" ]; then
     # rafd emotions
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --anchor-glob '/develop/data/rafd/aligned/'$IMAGE_SIZE'/*_left.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
@@ -264,8 +251,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/rafd_straight_vectors.json" ]; then
     # rafd emotions
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --anchor-glob '/develop/data/rafd/aligned/'$IMAGE_SIZE'/Rafd090*.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
@@ -275,8 +261,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/rafd_right_vectors.json" ]; then
     # rafd emotions
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --anchor-glob '/develop/data/rafd/aligned/'$IMAGE_SIZE'/Rafd045*.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
@@ -286,8 +271,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/rafd_left_vectors.json" ]; then
     # rafd emotions
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --anchor-glob '/develop/data/rafd/aligned/'$IMAGE_SIZE'/Rafd135*.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
@@ -322,8 +306,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/nontrain_vectors.json" ]; then
     # do nontrain vectors
     $PLATCMD sample \
-      $MODEL_FILE \
-      $MODEL_INTERFACE \
+      $MODEL \
       --dataset=$DATASET_VALUE \
       --split nontrain \
       --batch-size $BATCH_SIZE \
