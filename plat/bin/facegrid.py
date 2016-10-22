@@ -138,6 +138,8 @@ def main(cliargs):
                         help="Source dataset.")
     parser.add_argument('--seeds-image', dest='seeds_image', default=None,
                         help="image source of seeds")
+    parser.add_argument('--drop-seeds', dest='drop_seeds',
+                        default=False, action='store_true')
     parser.add_argument('--annoy-index', dest='annoy_index', default=None,
                         help="Annoy index.")
     parser.add_argument('--split', dest='split', default="all",
@@ -213,12 +215,18 @@ def main(cliargs):
     num_out_cells = args.outgrid_width * args.outgrid_height
     for i in range(r[0], r[1]):
         if i < core_dataset_size:
-            neighbors = aindex.get_nns_by_item(i, num_out_cells, include_distances=True) # will find the 20 nearest neighbors
+            # will find the N nearest neighbors
+            neighbors = aindex.get_nns_by_item(i, num_out_cells, include_distances=True)
             file_num = i
         else:
-            neighbors = aindex.get_nns_by_vector(encoded[i], num_out_cells-1, include_distances=True) # will find the 20 nearest neighbors
-            neighbors[0].append(i)
-            neighbors[1].append(0)
+            if args.drop_seeds:
+                # just the N nearest neighbors
+                neighbors = aindex.get_nns_by_vector(encoded[i], num_out_cells, include_distances=True) # will find the 20 nearest neighbors
+            else:
+                # original seed + (N-1) nearest neigbors
+                neighbors = aindex.get_nns_by_vector(encoded[i], num_out_cells-1, include_distances=True) # will find the 20 nearest neighbors
+                neighbors[0].append(i)
+                neighbors[1].append(0)
             file_num = i - core_dataset_size
 
         g = neighbors_to_rfgrid(neighbors[0], encoded, anchor_images, image_size, args.outgrid_width, args.outgrid_height)
