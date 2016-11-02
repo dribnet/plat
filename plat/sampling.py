@@ -172,14 +172,17 @@ def anchors_from_offsets(anchor, offsets, x_indices_str, y_indices_str, x_minsca
     newanchors.append(anchor + x_maxscale * x_offset + y_maxscale * y_offset)
     return np.array(newanchors)
 
-def compute_wave(offset):
+def compute_wave(offset, clip_wave):
     # sine wave from 0-1 to 0-1. 0 outside of [0,1]
-    if offset < 0.0 or offset > 1.0:
+    if clip_wave and (offset < 0.0 or offset > 1.0):
         return 0
     else:
         return 0.5 * (1.0 - math.cos(offset * 2 * math.pi))
 
-def anchors_wave_offsets(anchors, offsets, rows, cols, spacing, z_step, x_indices_str, x_minscale, x_maxscale):
+def distance_2d(p0, p1):
+    return math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
+
+def anchors_wave_offsets(anchors, offsets, rows, cols, spacing, radial_wave, clip_wave, z_step, x_indices_str, x_minscale, x_maxscale):
     from plat.interpolate import lerp
 
     only_anchor = None
@@ -194,6 +197,8 @@ def anchors_wave_offsets(anchors, offsets, rows, cols, spacing, z_step, x_indice
 
     newanchors = []
     cur_anchor_index = 0
+    center_pt = [(num_col_anchors-1) / 2.0, (num_row_anchors-1) / 2.0]
+    max_dist = distance_2d([0, 0], center_pt)
     for j in range(num_row_anchors):
         for i in range(num_col_anchors):
             if only_anchor is None:
@@ -201,9 +206,13 @@ def anchors_wave_offsets(anchors, offsets, rows, cols, spacing, z_step, x_indice
                 cur_anchor_index += 1
             else:
                 cur_anchor = only_anchor
-            x_frac = float(i) / num_col_anchors
+            cur_dist = distance_2d([i, j], center_pt)
+            if radial_wave:
+                x_frac = (max_dist-cur_dist) / max_dist
+            else:
+                x_frac = float(i) / num_col_anchors
             wave_val = z_step + x_frac
-            n1 = compute_wave(wave_val)
+            n1 = compute_wave(wave_val, clip_wave)
             x_scale = lerp(n1, x_minscale, x_maxscale)
             # if wave_val < 0.0 or wave_val > 1.0:
             #     x_scale = x_minscale
