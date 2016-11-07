@@ -2,8 +2,16 @@ import argparse
 import sys
 import json
 import numpy as np
+from sklearn import metrics
+
+import matplotlib
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+# Force matplotlib to not use any Xwindows backend.
 from plat.fuel_helper import get_dataset_iterator
-from plat.utils import json_list_to_array
+from plat.utils import json_list_to_array, get_json_vectors, offset_from_string
+
 
 def get_averages(attribs, encoded, num_encoded_attributes):
     with_attr = [[] for x in xrange(num_encoded_attributes)]
@@ -185,6 +193,44 @@ def save_json_attribs(attribs, filename):
     with open(filename, 'w') as outfile:
         json.dump(attribs.tolist(), outfile)   
 
+def do_roc(chosen_vector, encoded, attribs, attribs_index):
+    l = min(len(encoded), len(attribs))
+    y_list = []
+    score_list = []
+    print(attribs.shape)
+    for i in range(l):
+        y_list.append(attribs[i][0][attribs_index])
+        score_list.append(np.dot(chosen_vector, encoded[i]))
+
+    y = np.array(y_list)
+    scores = np.array(score_list)
+    # y = np.array([1, 1, 2, 2])
+    # scores = np.array([0.1, 0.4, 0.35, 0.8])
+    fpr, tpr, thresholds = metrics.roc_curve(y, scores)
+    roc_auc = metrics.auc(fpr, tpr)
+    # plt.figure()
+    lw = 2
+    plt.plot(fpr, tpr, color='darkorange',
+             lw=lw, label='ROC curve (area = %0.2f)' % roc_auc)
+    plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('SmileVector ROC')
+    plt.legend(loc="lower right")
+    plt.savefig('roc.png', bbox_inches='tight')
+
+    # the histogram of the data
+    n, bins, patches = plt.hist(scores, 50, facecolor='green', alpha=0.75)
+
+    plt.xlabel('Smile')
+    plt.ylabel('Probability')
+    plt.title(r'$\mathrm{Histogram\ of\ Smileness:}$')
+    # plt.axis([40, 160, 0, 0.03])
+    plt.grid(True)
+    plt.savefig('hist.png', bbox_inches='tight')
+
 def atvec(parser, context, args):
     parser.add_argument('--dataset', dest='dataset', default=None,
                         help="Source dataset (for labels).")
@@ -196,6 +242,12 @@ def atvec(parser, context, args):
                         help="z dimension of vectors")
     parser.add_argument("--encoded-vectors", type=str, default=None,
                         help="Comma separated list of json arrays")
+    parser.add_argument('--roc', dest='roc', default=False, action='store_true',
+                        help="ROC curve of selected attribute vectors")
+    parser.add_argument("--attribute-vectors", dest='attribute_vectors', default=None,
+                        help="use json file as source of attribute vectors")
+    parser.add_argument('--attribute-indices', dest='attribute_indices', default=None, type=str,
+                        help="indices to select specific attribute vectors")
     parser.add_argument("--balanced2", dest='balanced2', type=str, default=None,
                         help="Balanced two attributes and generate atvec. eg: 20,31")
     parser.add_argument("--balanced", dest='balanced', type=str, default=None,
@@ -225,6 +277,13 @@ def atvec(parser, context, args):
     num_rows, z_dim = encoded.shape
     attribs = np.array(list(get_dataset_iterator(args.dataset, args.split, include_features=False, include_targets=True)))
     print("encoded vectors: {}, attributes: {} ".format(encoded.shape, attribs.shape))
+
+    if args.roc:
+        atvecs = get_json_vectors(args.attribute_vectors)
+        dim = len(atvecs[0])
+        chosen_vector = offset_from_string(args.attribute_indices, atvecs, dim)
+        do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices))
+        sys.exit(0)
 
     if(args.balanced2):
         indexes = map(int, args.balanced2.split(","))
