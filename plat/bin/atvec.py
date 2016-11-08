@@ -193,22 +193,42 @@ def save_json_attribs(attribs, filename):
     with open(filename, 'w') as outfile:
         json.dump(attribs.tolist(), outfile)   
 
-def do_roc(chosen_vector, encoded, attribs, attribs_index):
+def do_roc(chosen_vector, encoded, attribs, attribs_index, outfile):
+    if outfile is None:
+        outfile = "roc"
+
     l = min(len(encoded), len(attribs))
     y_list = []
     score_list = []
+    y_pred_list = []
+    score_true_list = []
+    score_false_list = []
     print(attribs.shape)
     for i in range(l):
         y_list.append(attribs[i][0][attribs_index])
-        score_list.append(np.dot(chosen_vector, encoded[i]))
+        score = np.dot(chosen_vector, encoded[i])
+        score_list.append(score)
+        if score < 0:
+            y_pred_list.append(0)
+        else:
+            y_pred_list.append(1)
+        if attribs[i][0][attribs_index] == 1:
+            score_true_list.append(score)
+        else:
+            score_false_list.append(score)
 
     y = np.array(y_list)
     scores = np.array(score_list)
+    y_pred = np.array(y_pred_list)
+    scores_false = np.array(score_false_list)
+    scores_true = np.array(score_true_list)
     # y = np.array([1, 1, 2, 2])
     # scores = np.array([0.1, 0.4, 0.35, 0.8])
     fpr, tpr, thresholds = metrics.roc_curve(y, scores)
     roc_auc = metrics.auc(fpr, tpr)
-    # plt.figure()
+    accuracy = metrics.accuracy_score(y, y_pred)
+    print("ROC AUC is {:.03f} and accuracy is {:.03f}".format(roc_auc, accuracy))
+    plt.figure()
     lw = 2
     plt.plot(fpr, tpr, color='darkorange',
              lw=lw, label='ROC curve (area = %0.2f)' % roc_auc)
@@ -217,23 +237,42 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index):
     plt.ylim([0.0, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('SmileVector ROC')
+    plt.title('AtVec ROC (acc={:.03f})'.format(accuracy))
     plt.legend(loc="lower right")
-    plt.savefig('roc.png', bbox_inches='tight')
+    plt.savefig('{}_roc.png'.format(outfile), bbox_inches='tight')
 
     # the histogram of the data
-    n, bins, patches = plt.hist(scores, 50, facecolor='green', alpha=0.75)
-
-    plt.xlabel('Smile')
+    plt.figure()
+    n, bins, patches = plt.hist(scores, 50, facecolor='blue', alpha=0.75)
+    plt.xlabel('Attribute')
     plt.ylabel('Probability')
-    plt.title(r'$\mathrm{Histogram\ of\ Smileness:}$')
+    plt.title(r'$\mathrm{Histogram\ of\ Attribute:}$')
     # plt.axis([40, 160, 0, 0.03])
     plt.grid(True)
-    plt.savefig('hist.png', bbox_inches='tight')
+    plt.savefig('{}_hist_all.png'.format(outfile), bbox_inches='tight')
+
+    # split histogram
+    plt.figure()
+    plt.hist(scores_true, 50, facecolor='green', alpha=0.5)
+    plt.hist(scores_false, 50, facecolor='red', alpha=0.5)
+    plt.xlabel('Attribute')
+    plt.ylabel('Probability')
+    plt.title(r'$\mathrm{Histograms\ of\ Attribute:}$')
+    # plt.axis([40, 160, 0, 0.03])
+    plt.grid(True)
+    plt.savefig('{}_hist_both.png'.format(outfile), bbox_inches='tight')
+
+def get_attribs_from_file(file):
+    with open(file) as f:
+        lines = f.readlines()
+    a = [[[int(l.rstrip())]] for l in lines]
+    return np.array(a)
 
 def atvec(parser, context, args):
     parser.add_argument('--dataset', dest='dataset', default=None,
                         help="Source dataset (for labels).")
+    parser.add_argument('--labels', dest='labels', default=None,
+                        help="Text file with 0/1 labels.")
     parser.add_argument('--split', dest='split', default="train",
                         help="Which split to use from the dataset (train/nontrain/valid/test/any).")
     parser.add_argument("--num-attribs", dest='num_attribs', type=int, default=40,
@@ -275,14 +314,17 @@ def atvec(parser, context, args):
 
     encoded = json_list_to_array(args.encoded_vectors)
     num_rows, z_dim = encoded.shape
-    attribs = np.array(list(get_dataset_iterator(args.dataset, args.split, include_features=False, include_targets=True)))
+    if args.dataset:
+        attribs = np.array(list(get_dataset_iterator(args.dataset, args.split, include_features=False, include_targets=True)))
+    else:
+        attribs = get_attribs_from_file(args.labels)
     print("encoded vectors: {}, attributes: {} ".format(encoded.shape, attribs.shape))
 
     if args.roc:
         atvecs = get_json_vectors(args.attribute_vectors)
         dim = len(atvecs[0])
         chosen_vector = offset_from_string(args.attribute_indices, atvecs, dim)
-        do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices))
+        do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices), args.outfile)
         sys.exit(0)
 
     if(args.balanced2):
