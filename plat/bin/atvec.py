@@ -3,6 +3,7 @@ import sys
 import json
 import numpy as np
 from sklearn import metrics
+import os
 
 import matplotlib
 matplotlib.use('Agg')
@@ -196,6 +197,7 @@ def save_json_attribs(attribs, filename):
 def do_roc(chosen_vector, encoded, attribs, attribs_index, outfile):
     if outfile is None:
         outfile = "roc"
+    title = os.path.basename(outfile)
 
     l = min(len(encoded), len(attribs))
     y_list = []
@@ -237,7 +239,7 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, outfile):
     plt.ylim([0.0, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('AtVec ROC (acc={:.03f})'.format(accuracy))
+    plt.title('{} ROC (acc={:.03f})'.format(title, accuracy))
     plt.legend(loc="lower right")
     plt.savefig('{}_roc.png'.format(outfile), bbox_inches='tight')
 
@@ -246,7 +248,7 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, outfile):
     n, bins, patches = plt.hist(scores, 50, facecolor='blue', alpha=0.75)
     plt.xlabel('Attribute')
     plt.ylabel('Probability')
-    plt.title(r'$\mathrm{Histogram\ of\ Attribute:}$')
+    plt.title('Histogram of {}'.format(title))
     # plt.axis([40, 160, 0, 0.03])
     plt.grid(True)
     plt.savefig('{}_hist_all.png'.format(outfile), bbox_inches='tight')
@@ -257,7 +259,7 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, outfile):
     plt.hist(scores_false, 50, facecolor='red', alpha=0.5)
     plt.xlabel('Attribute')
     plt.ylabel('Probability')
-    plt.title(r'$\mathrm{Histograms\ of\ Attribute:}$')
+    plt.title('Histograms of {}'.format(title))
     # plt.axis([40, 160, 0, 0.03])
     plt.grid(True)
     plt.savefig('{}_hist_both.png'.format(outfile), bbox_inches='tight')

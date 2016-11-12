@@ -37,6 +37,19 @@ function sample_vector {
   --outfile $JSON_SUBDIR"/atvec_"$3"_female.png"
 }
 
+
+function atvec_roc {
+  $PLATCMD atvec \
+        --roc \
+        --dataset $DATASET_VALUE \
+        --split valid \
+        --dataset celeba_dlib_256_notrain \
+        --encoded-vectors "$JSON_SUBDIR/nontrain_vectors.json" \
+        --attribute-vectors $1 \
+        --attribute-indices $2 \
+        --outfile $JSON_SUBDIR"/atvec_"$3
+}
+
 # do train vectors
 if [ ! -f $JSON_SUBDIR/train_vectors.json ]; then
     $PLATCMD sample \
@@ -92,6 +105,17 @@ celeba_attribs=(
   ["39"]="young"
 )
 
+if [ ! -f "$JSON_SUBDIR/nontrain_vectors.json" ]; then
+    # do nontrain vectors
+    $PLATCMD sample \
+      $MODEL \
+      --dataset=$DATASET_VALUE \
+      --split nontrain \
+      --batch-size $BATCH_SIZE \
+      --encoder \
+      --outfile "$JSON_SUBDIR/nontrain_vectors.json"
+fi
+
 # atvec all labels and a balanced male/smile/open mouth
 if [ ! -f "$JSON_SUBDIR/atvecs_all.json" ]; then
     $PLATCMD atvec --dataset=$DATASET_VALUE \
@@ -102,6 +126,7 @@ if [ ! -f "$JSON_SUBDIR/atvecs_all.json" ]; then
       --outfile "$JSON_SUBDIR/atvecs_all.json"
 
     for index in "${!celeba_attribs[@]}"; do
+        atvec_roc     "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]}
         sample_vector "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]}
     done
 fi
@@ -300,16 +325,4 @@ if [ ! -f "$JSON_SUBDIR/atvec_rafd_left_to_right.json" ]; then
       --outfile "$JSON_SUBDIR/atvec_rafd_left_to_right.json"
 
     sample_vector "$JSON_SUBDIR/atvec_rafd_left_to_right.json" "0" "rafd_left_to_right"
-fi
-
-
-if [ ! -f "$JSON_SUBDIR/nontrain_vectors.json" ]; then
-    # do nontrain vectors
-    $PLATCMD sample \
-      $MODEL \
-      --dataset=$DATASET_VALUE \
-      --split nontrain \
-      --batch-size $BATCH_SIZE \
-      --encoder \
-      --outfile "$JSON_SUBDIR/nontrain_vectors.json"
 fi
