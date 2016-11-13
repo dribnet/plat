@@ -43,7 +43,6 @@ function atvec_roc {
         --roc \
         --dataset $DATASET_VALUE \
         --split valid \
-        --dataset celeba_dlib_256_notrain \
         --encoded-vectors "$JSON_SUBDIR/nontrain_vectors.json" \
         --attribute-vectors $1 \
         --attribute-indices $2 \
