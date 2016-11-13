@@ -194,9 +194,79 @@ def save_json_attribs(attribs, filename):
     with open(filename, 'w') as outfile:
         json.dump(attribs.tolist(), outfile)   
 
-def do_roc(chosen_vector, encoded, attribs, attribs_index, outfile):
+def compute_accuracy(y, score_list, threshold):
+    l = len(score_list)
+    y_pred_list = []
+    for i in range(l):
+        if score_list[i] < threshold:
+            y_pred_list.append(0)
+        else:
+            y_pred_list.append(1)
+    y_pred = np.array(y_pred_list)
+    return metrics.accuracy_score(y, y_pred)
+
+# binary search to find optimal threshold to maximize accuracy
+def do_thresh(atvecs, encoded, attribs, outfile):
+    if outfile is None:
+        outfile = "thresh.json"
+    l = min(len(encoded), len(attribs))
+    print(attribs.shape)
+    thresh_list = []
+    for j in range(len(atvecs)):
+        at_vec = atvecs[j]
+        y_list = []
+        score_list = []
+        y_pred_list = []
+        score_true_list = []
+        score_false_list = []
+        for i in range(l):
+            y_list.append(attribs[i][0][j])
+            score = np.dot(at_vec, encoded[i])
+            score_list.append(score)
+            if attribs[i][0][j] == 1:
+                score_true_list.append(score)
+            else:
+                score_false_list.append(score)
+        y = np.array(y_list)
+        sorted_scores = sorted(score_list)
+        # here is the core loop
+        min_index = 0
+        min_index_accuracy = compute_accuracy(y, score_list, sorted_scores[min_index])
+        max_index = l-1
+        max_index_accuracy = compute_accuracy(y, score_list, sorted_scores[max_index])
+        while(min_index + 1 < max_index):
+            pivot_index = int(min_index + (max_index - min_index)/2)
+            pivot_index_accuracy = compute_accuracy(y, score_list, sorted_scores[pivot_index])
+            if (min_index_accuracy < pivot_index_accuracy):
+                min_index = pivot_index
+                min_index_accuracy = pivot_index_accuracy
+            else:
+                max_index = pivot_index
+                max_index_accuracy = pivot_index_accuracy
+        if min_index_accuracy > max_index_accuracy:
+            best_index = min_index
+        else:
+            best_index = max_index
+        # poor man's unit tests
+        # best_index = best_index + 500
+        # if best_index > l-1:
+        #     best_index = l-1
+        # if best_index < 0:
+        #     best_indext = 0
+        threshold = sorted_scores[best_index]
+        best_accuracy = compute_accuracy(y, score_list, threshold)
+        thresh_list.append(threshold)
+        print("Best accuracy for attribute {:2d} is {:.4f} at {:6d} = {:6.3f}".format(j, best_accuracy, best_index, threshold))
+
+    thresh_array = np.array([thresh_list])
+    save_json_attribs(thresh_array, outfile)
+
+
+def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile):
     if outfile is None:
         outfile = "roc"
+    if threshold is None:
+        threshold = 0
     title = os.path.basename(outfile)
 
     l = min(len(encoded), len(attribs))
@@ -210,7 +280,7 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, outfile):
         y_list.append(attribs[i][0][attribs_index])
         score = np.dot(chosen_vector, encoded[i])
         score_list.append(score)
-        if score < 0:
+        if score < threshold:
             y_pred_list.append(0)
         else:
             y_pred_list.append(1)
@@ -229,7 +299,7 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, outfile):
     fpr, tpr, thresholds = metrics.roc_curve(y, scores)
     roc_auc = metrics.auc(fpr, tpr)
     accuracy = metrics.accuracy_score(y, y_pred)
-    print("ROC AUC is {:.03f} and accuracy is {:.03f}".format(roc_auc, accuracy))
+    print("{} ROC AUC is {:.03f} and accuracy is {:.03f}".format(title, roc_auc, accuracy))
     plt.figure()
     lw = 2
     plt.plot(fpr, tpr, color='darkorange',
@@ -251,17 +321,19 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, outfile):
     plt.title('Histogram of {}'.format(title))
     # plt.axis([40, 160, 0, 0.03])
     plt.grid(True)
+    plt.axvline(threshold, color='b', linestyle='dashed', linewidth=2)
     plt.savefig('{}_hist_all.png'.format(outfile), bbox_inches='tight')
 
     # split histogram
     plt.figure()
-    plt.hist(scores_true, 50, facecolor='green', alpha=0.5)
-    plt.hist(scores_false, 50, facecolor='red', alpha=0.5)
+    plt.hist(scores_true, 100, facecolor='green', alpha=0.5)
+    plt.hist(scores_false, 100, facecolor='red', alpha=0.5)
     plt.xlabel('Attribute')
     plt.ylabel('Probability')
     plt.title('Histograms of {}'.format(title))
     # plt.axis([40, 160, 0, 0.03])
     plt.grid(True)
+    plt.axvline(threshold, color='b', linestyle='dashed', linewidth=2)
     plt.savefig('{}_hist_both.png'.format(outfile), bbox_inches='tight')
 
 def get_attribs_from_file(file):
@@ -283,10 +355,14 @@ def atvec(parser, context, args):
                         help="z dimension of vectors")
     parser.add_argument("--encoded-vectors", type=str, default=None,
                         help="Comma separated list of json arrays")
+    parser.add_argument('--thresh', dest='thresh', default=False, action='store_true',
+                        help="Compute thresholds for attribute vectors classifiers")
     parser.add_argument('--roc', dest='roc', default=False, action='store_true',
                         help="ROC curve of selected attribute vectors")
     parser.add_argument("--attribute-vectors", dest='attribute_vectors', default=None,
                         help="use json file as source of attribute vectors")
+    parser.add_argument("--attribute-thresholds", dest='attribute_thresholds', default=None,
+                        help="use these non-zero values for binary classifier thresholds")
     parser.add_argument('--attribute-indices', dest='attribute_indices', default=None, type=str,
                         help="indices to select specific attribute vectors")
     parser.add_argument("--balanced2", dest='balanced2', type=str, default=None,
@@ -326,7 +402,17 @@ def atvec(parser, context, args):
         atvecs = get_json_vectors(args.attribute_vectors)
         dim = len(atvecs[0])
         chosen_vector = offset_from_string(args.attribute_indices, atvecs, dim)
-        do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices), args.outfile)
+        if args.attribute_thresholds is not None:
+            atvec_thresholds = get_json_vectors(args.attribute_thresholds)
+            threshold = atvec_thresholds[0][int(args.attribute_indices)]
+        else:
+            threshold = None
+        do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices), threshold, args.outfile)
+        sys.exit(0)
+
+    if args.thresh:
+        atvecs = get_json_vectors(args.attribute_vectors)
+        do_thresh(atvecs, encoded, attribs, args.outfile)
         sys.exit(0)
 
     if(args.balanced2):

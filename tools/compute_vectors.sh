@@ -37,6 +37,15 @@ function sample_vector {
   --outfile $JSON_SUBDIR"/atvec_"$3"_female.png"
 }
 
+function atvec_thresh {
+  $PLATCMD atvec \
+        --thresh \
+        --dataset $DATASET_VALUE \
+        --split train \
+        --encoded-vectors "$JSON_SUBDIR/train_vectors.json" \
+        --attribute-vectors $1 \
+        --outfile $2
+}
 
 function atvec_roc {
   $PLATCMD atvec \
@@ -45,6 +54,7 @@ function atvec_roc {
         --split valid \
         --encoded-vectors "$JSON_SUBDIR/nontrain_vectors.json" \
         --attribute-vectors $1 \
+        --attribute-thresholds $4 \
         --attribute-indices $2 \
         --outfile $JSON_SUBDIR"/atvec_"$3
 }
@@ -124,8 +134,11 @@ if [ ! -f "$JSON_SUBDIR/atvecs_all.json" ]; then
       --encoded-vectors "$JSON_SUBDIR/train_vectors.json" \
       --outfile "$JSON_SUBDIR/atvecs_all.json"
 
+    atvec_thresh "$JSON_SUBDIR/atvecs_all.json" "$JSON_SUBDIR/atvecs_all_thresholds.json"
     for index in "${!celeba_attribs[@]}"; do
-        atvec_roc     "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]}
+        atvec_roc     "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]} "$JSON_SUBDIR/atvecs_all_thresholds.json"
+    done
+    for index in "${!celeba_attribs[@]}"; do
         sample_vector "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]}
     done
 fi
