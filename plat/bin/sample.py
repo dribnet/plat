@@ -10,6 +10,10 @@ import json
 import datetime
 import os
 
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
 from plat.fuel_helper import get_anchor_images
 from plat.grid_layout import grid2img
 from plat.utils import anchors_from_image, anchors_from_filelist, get_json_vectors
@@ -142,6 +146,21 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
     plat.sampling.grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args, args.batch_size)
     return dmodel
 
+class AnchorFileHandler(FileSystemEventHandler):
+    def setup(self, args, dmodel, save_path, cur_z_step):
+        self.args = args
+        self.dmodel = dmodel
+        self.save_path = save_path
+        self.cur_z_step = cur_z_step
+
+    def process(self, anchor):
+        print("Processing anchor: {}".format(anchor))
+        self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step)
+
+    def on_modified(self, event):
+        if not event.is_directory:
+            self.process(event.src_path)
+
 def sample(parser, context, args):
     parser.add_argument("--interface", dest='model_class', type=str,
                         default=None, help="class encapsulating model")
@@ -209,6 +228,8 @@ def sample(parser, context, args):
                         help="use reconstructed images instead of random ones")
     parser.add_argument('--anchor-glob', dest='anchor_glob', default=None,
                         help="use file glob source of anchors")
+    parser.add_argument('--anchor-directory', dest='anchor_dir', default=None,
+                        help="monitor directory for anchors")
     parser.add_argument('--anchor-image', dest='anchor_image', default=None,
                         help="use image as source of anchors")
     parser.add_argument('--anchor-vectors', dest='anchor_vectors', default=None,
@@ -262,9 +283,7 @@ def sample(parser, context, args):
 
     dmodel = None
     cur_z_step = args.z_initial
-    if args.range is None:
-        run_with_args(args, dmodel, args.anchor_image, args.save_path, cur_z_step)
-    else:
+    if args.range is not None:
         template_low, template_high = map(int, args.range.split(","))
         for i in range(template_low, template_high + 1):
             if args.anchor_image_template is not None:
@@ -274,6 +293,27 @@ def sample(parser, context, args):
             cur_save_path = args.save_path_template.format(i)
             dmodel = run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step)
             cur_z_step += args.z_step
+    elif args.anchor_dir:
+        event_handler = AnchorFileHandler()
+        event_handler.setup(args, dmodel, args.save_path, cur_z_step)
+
+        for f in sorted(os.listdir(args.anchor_dir)):
+            full_path = os.path.join(args.anchor_dir, f)
+            if os.path.isfile(full_path):
+                event_handler.process(full_path)
+
+        observer = Observer()
+        observer.schedule(event_handler, path=args.anchor_dir, recursive=False)
+        observer.start()
+
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.join()
+    else:
+        run_with_args(args, dmodel, args.anchor_image, args.save_path, cur_z_step)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Plot model samples")
