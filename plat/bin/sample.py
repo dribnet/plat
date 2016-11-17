@@ -230,6 +230,8 @@ def sample(parser, context, args):
                         help="use file glob source of anchors")
     parser.add_argument('--anchor-directory', dest='anchor_dir', default=None,
                         help="monitor directory for anchors")
+    parser.add_argument('--watch', dest='watch', default=False, action='store_true',
+                        help="monitor anchor-directory indefinitely")
     parser.add_argument('--anchor-image', dest='anchor_image', default=None,
                         help="use image as source of anchors")
     parser.add_argument('--anchor-vectors', dest='anchor_vectors', default=None,
@@ -302,16 +304,18 @@ def sample(parser, context, args):
             if os.path.isfile(full_path):
                 event_handler.process(full_path)
 
-        observer = Observer()
-        observer.schedule(event_handler, path=args.anchor_dir, recursive=False)
-        observer.start()
+        if args.watch:
+            print("Watching anchor directory {}".format(args.anchor_dir))
+            observer = Observer()
+            observer.schedule(event_handler, path=args.anchor_dir, recursive=False)
+            observer.start()
 
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            observer.stop()
-        observer.join()
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                observer.stop()
+            observer.join()
     else:
         run_with_args(args, dmodel, args.anchor_image, args.save_path, cur_z_step)
 
