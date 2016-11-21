@@ -71,7 +71,7 @@ def generate_latent_grid(z_dim, rows, cols, fan, gradient, spherical, gaussian, 
     return z
 
 # this function can fill in placeholders for %DATE%, %SIZE% and %SEQ%
-def emit_filename(filename, args, image_size):
+def emit_filename(filename, args, image_size, basename):
     datestr = datetime.datetime.now().strftime("%Y%m%d")
     filename = filename.replace('%DATE%', datestr)
     filename = filename.replace('%SIZE%', "{:d}".format(image_size))
@@ -84,6 +84,7 @@ def emit_filename(filename, args, image_size):
             seed = "{:d}".format(args.seed)
         else:
             seed = "NoSeed"
+        filename = filename.replace('%BASENAME%', basename)
         filename = filename.replace('%MODEL%', model)
         filename = filename.replace('%OFFSET%', "{:d}".format(args.offset))
         filename = filename.replace('%SEED%', seed)
@@ -99,7 +100,7 @@ def emit_filename(filename, args, image_size):
         filename = candidate
     return filename
 
-def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, args=None, batch_size=24):
+def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, basename="basename", args=None, batch_size=24):
     z_queue = z[:]
     samples = None
     # print("========> DECODING {} at a time".format(batch_size))
@@ -125,7 +126,7 @@ def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, sa
 
     # each sample is 3xsizexsize
     image_size = one_sample.shape[1]
-    final_save_path = emit_filename(save_path, args, image_size);
+    final_save_path = emit_filename(save_path, args, image_size, basename);
     print("Saving image file {}".format(final_save_path))
     img = grid2img(samples, rows, cols, not tight)
     img.save(final_save_path)

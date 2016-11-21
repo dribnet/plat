@@ -20,7 +20,7 @@ from plat.utils import anchors_from_image, anchors_from_filelist, get_json_vecto
 import plat.sampling
 from plat import zoo
 
-def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
+def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur_basename="basename"):
     if args.seed is not None:
         np.random.seed(args.seed)
         random.seed(args.seed)
@@ -143,7 +143,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step):
     if global_offset is not None:
         z = z + global_offset
 
-    plat.sampling.grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args, args.batch_size)
+    plat.sampling.grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, cur_basename, args, args.batch_size)
     return dmodel
 
 class AnchorFileHandler(FileSystemEventHandler):
@@ -159,7 +159,8 @@ class AnchorFileHandler(FileSystemEventHandler):
             print("Skipping anchor: {}".format(anchor))
             return;
         print("Processing anchor: {}".format(anchor))
-        self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step)
+        barename = os.path.splitext(basename)[0]
+        self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename)
 
     def on_modified(self, event):
         if not event.is_directory:
