@@ -154,6 +154,10 @@ class AnchorFileHandler(FileSystemEventHandler):
         self.cur_z_step = cur_z_step
 
     def process(self, anchor):
+        basename = os.path.basename(anchor)
+        if basename[0] == '.' or basename[0] == '_':
+            print("Skipping anchor: {}".format(anchor))
+            return;
         print("Processing anchor: {}".format(anchor))
         self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step)
 
