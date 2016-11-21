@@ -90,6 +90,7 @@ def emit_filename(filename, args, image_size, basename):
         filename = filename.replace('%SEED%', seed)
         filename = filename.replace('%ROWS%', "{:d}".format(args.rows))
         filename = filename.replace('%COLS%', "{:d}".format(args.cols))
+        filename = filename.replace('%INDEX%', "{}".format(args.anchor_offset_x))
     if '%SEQ%' in filename:
         # determine what the next available number is
         cur_seq = 1
@@ -128,6 +129,9 @@ def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, sa
     image_size = one_sample.shape[1]
     final_save_path = emit_filename(save_path, args, image_size, basename);
     print("Saving image file {}".format(final_save_path))
+    dirname = os.path.dirname(final_save_path)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
     img = grid2img(samples, rows, cols, not tight)
     img.save(final_save_path)
 

@@ -160,7 +160,12 @@ class AnchorFileHandler(FileSystemEventHandler):
             return;
         print("Processing anchor: {}".format(anchor))
         barename = os.path.splitext(basename)[0]
-        self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename)
+        if self.args.multistrip is None:
+            self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename)
+        else:
+            for n in range(self.args.multistrip):
+                self.args.anchor_offset_x = "{:d}".format(n)
+                self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename)
 
     def on_modified(self, event):
         if not event.is_directory:
@@ -276,6 +281,8 @@ def sample(parser, context, args):
                         help="template for anchor image filename")
     parser.add_argument('--outfile-template', dest='save_path_template', default=None,
                         help="template for save path filename")
+    parser.add_argument('--multistrip', dest='multistrip', default=None, type=int,
+                        help="update anchor-offset-x for each entry in anchor-offset")
     parser.add_argument('--range', dest='range', default=None,
                         help="low,high integer range for tempalte run")
     parser.add_argument('--z-step', dest='z_step', default=0.01, type=float,
