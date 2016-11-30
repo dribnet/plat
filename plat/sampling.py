@@ -75,6 +75,8 @@ def emit_filename(filename, args, image_size, basename):
     datestr = datetime.datetime.now().strftime("%Y%m%d")
     filename = filename.replace('%DATE%', datestr)
     filename = filename.replace('%SIZE%', "{:d}".format(image_size))
+    if basename is None:
+        basename = "Nobase"
     if args is not None:
         if args.model:
             model = args.model.replace(".", "_")
