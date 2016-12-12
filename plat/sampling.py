@@ -16,6 +16,7 @@ from braceexpand import braceexpand
 from plat.fuel_helper import get_dataset_iterator
 from plat.grid_layout import grid2img, create_gradient_grid, create_mine_grid, create_chain_grid, create_fan_grid
 from plat.utils import offset_from_string
+from plat.interpolate import lerp
 
 g_image_size = 128
 
@@ -188,8 +189,6 @@ def distance_2d(p0, p1):
     return math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
 
 def anchors_wave_offsets(anchors, offsets, rows, cols, spacing, radial_wave, clip_wave, z_step, x_indices_str, x_minscale, x_maxscale):
-    from plat.interpolate import lerp
-
     only_anchor = None
     if len(anchors) == 1:
         only_anchor = anchors[0]
@@ -233,7 +232,6 @@ def anchors_wave_offsets(anchors, offsets, rows, cols, spacing, radial_wave, cli
 
 def anchors_noise_offsets(anchors, offsets, rows, cols, spacing, z_step, x_indices_str, y_indices_str, x_minscale, y_minscale, x_maxscale, y_maxscale):
     from noise import pnoise3
-    from plat.interpolate import lerp
 
     only_anchor = None
     if len(anchors) == 1:
@@ -259,6 +257,38 @@ def anchors_noise_offsets(anchors, offsets, rows, cols, spacing, z_step, x_indic
             x_frac = float(i) / num_col_anchors
             n1 = 0.5 * (1.0 + pnoise3(x_frac, y_frac, z_step, octaves=4, repeatz=2))
             n2 = 0.5 * (1.0 + pnoise3(100+x_frac, 100+y_frac, z_step, octaves=4, repeatz=2))
+            x_scale = lerp(n1, x_minscale, x_maxscale)
+            y_scale = lerp(n2, y_minscale, y_maxscale)
+            # print("{}, {} produced {} -> {}, {} = {}".format(i,j,n1,x_minscale, x_maxscale,x_scale))
+            newanchors.append(cur_anchor + x_scale * x_offset + y_scale * y_offset)
+    return np.array(newanchors)
+
+# TODO: this should probably be refactored from above
+def anchors_json_offsets(anchors, offsets, rows, cols, spacing, z_step, x_indices_str, y_indices_str, x_minscale, y_minscale, x_maxscale, y_maxscale, range_data):
+    only_anchor = None
+    if len(anchors) == 1:
+        only_anchor = anchors[0]
+
+    dim = len(anchors[0])
+    x_offset = offset_from_string(x_indices_str, offsets, dim)
+    y_offset = offset_from_string(y_indices_str, offsets, dim)
+
+    num_row_anchors = (rows + spacing - 1) / spacing
+    num_col_anchors = (cols + spacing - 1) / spacing
+
+    newanchors = []
+    cur_anchor_index = 0
+    for j in range(num_row_anchors):
+        y_frac = float(j) / num_row_anchors
+        for i in range(num_col_anchors):
+            if only_anchor is None:
+                cur_anchor = anchors[cur_anchor_index]
+                cur_anchor_index += 1
+            else:
+                cur_anchor = only_anchor
+            x_frac = float(i) / num_col_anchors
+            n1 = range_data[z_step][0]
+            n2 = range_data[z_step][1]
             x_scale = lerp(n1, x_minscale, x_maxscale)
             y_scale = lerp(n2, y_minscale, y_maxscale)
             # print("{}, {} produced {} -> {}, {} = {}".format(i,j,n1,x_minscale, x_maxscale,x_scale))

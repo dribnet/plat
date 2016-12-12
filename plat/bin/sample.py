@@ -20,7 +20,7 @@ from plat.utils import anchors_from_image, anchors_from_filelist, get_json_vecto
 import plat.sampling
 from plat import zoo
 
-def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur_basename="basename"):
+def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur_basename="basename", range_data=None):
     if args.seed is not None:
         np.random.seed(args.seed)
         random.seed(args.seed)
@@ -111,6 +111,11 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
             anchors = plat.sampling.anchors_noise_offsets(anchors, offsets, args.rows, args.cols, args.spacing,
                 cur_z_step, args.anchor_offset_x, args.anchor_offset_y,
                 args.anchor_offset_x_minscale, args.anchor_offset_y_minscale, args.anchor_offset_x_maxscale, args.anchor_offset_y_maxscale)
+        elif range_data is not None:
+            anchors = plat.sampling.anchors_json_offsets(anchors, offsets, args.rows, args.cols, args.spacing,
+                cur_z_step, args.anchor_offset_x, args.anchor_offset_y,
+                args.anchor_offset_x_minscale, args.anchor_offset_y_minscale, args.anchor_offset_x_maxscale, args.anchor_offset_y_maxscale,
+                range_data)
         else:
             anchors = plat.sampling.anchors_from_offsets(anchors[0], offsets, args.anchor_offset_x, args.anchor_offset_y,
                 args.anchor_offset_x_minscale, args.anchor_offset_y_minscale, args.anchor_offset_x_maxscale, args.anchor_offset_y_maxscale)
@@ -221,6 +226,8 @@ def sample(parser, context, args):
                         help="anchor-wave mode is clipped (don't wrap)")
     parser.add_argument('--anchor-noise', dest='anchor_noise', default=False, action='store_true',
                         help="interpret anchor offsets as noise paramaters")
+    parser.add_argument('--anchor-json', dest='anchor_json', default=False,
+                        help="a json path in n dimensions")
     parser.add_argument('--gradient', dest='gradient', default=False, action='store_true')
     parser.add_argument('--linear', dest='linear', default=False, action='store_true')
     parser.add_argument('--gaussian', dest='gaussian', default=False, action='store_true')
@@ -296,17 +303,29 @@ def sample(parser, context, args):
         zoo.check_model_download(args.model)
 
     dmodel = None
-    cur_z_step = args.z_initial
-    if args.range is not None:
-        template_low, template_high = map(int, args.range.split(","))
+    z_range = None
+    range_data = None
+    if args.anchor_json:
+        with open(args.anchor_json) as json_file:
+            range_data = np.array(json.load(json_file)["points"])
+            print range_data.shape
+        z_range = 0, (len(range_data)-1)
+        cur_z_step = 0
+        z_step = 1
+    elif args.range is not None:
+        z_range = map(int, args.range.split(","))
+        z_step = args.z_step
+        cur_z_step = args.z_initial
+    if z_range is not None:
+        template_low, template_high = z_range
         for i in range(template_low, template_high + 1):
             if args.anchor_image_template is not None:
                 cur_anchor_image = args.anchor_image_template.format(i)
             else:
                 cur_anchor_image = args.anchor_image
             cur_save_path = args.save_path_template.format(i)
-            dmodel = run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step)
-            cur_z_step += args.z_step
+            dmodel = run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, range_data=range_data)
+            cur_z_step += z_step
     elif args.anchor_dir:
         event_handler = AnchorFileHandler()
         event_handler.setup(args, dmodel, args.save_path, cur_z_step)
