@@ -165,12 +165,39 @@ class AnchorFileHandler(FileSystemEventHandler):
             return;
         print("Processing anchor: {}".format(anchor))
         barename = os.path.splitext(basename)[0]
-        if self.args.multistrip is None:
-            self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename)
-        else:
+
+        z_range = None
+        range_data = None
+        if self.args.multistrip is not None:
             for n in range(self.args.multistrip):
                 self.args.anchor_offset_x = "{:d}".format(n)
                 self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename)
+        elif self.args.anchor_json:
+            with open(self.args.anchor_json) as json_file:
+                range_data = np.array(json.load(json_file)["points"])
+                print range_data.shape
+            z_range = 0, (len(range_data)-1)
+            cur_z_step = 0
+            z_step = 1
+        elif self.args.range is not None:
+            z_range = map(int, self.args.range.split(","))
+            z_step = args.z_step
+            cur_z_step = args.z_initial
+        if z_range is not None:
+            template_low, template_high = z_range
+            for i in range(template_low, template_high + 1):
+                # this is the tricky part to merge?
+                if anchor:
+                    cur_anchor_image = anchor
+                elif self.args.anchor_image_template is not None:
+                    cur_anchor_image = self.args.anchor_image_template.format(i)
+                else:
+                    cur_anchor_image = self.args.anchor_image
+                cur_save_path = self.args.save_path_template.format(i)
+                self.dmodel = run_with_args(self.args, self.dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur_basename=barename, range_data=range_data)
+                cur_z_step += z_step
+        else:
+            self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename)
 
     def on_modified(self, event):
         if not event.is_directory:
@@ -305,7 +332,30 @@ def sample(parser, context, args):
     dmodel = None
     z_range = None
     range_data = None
-    if args.anchor_json:
+    event_handler = AnchorFileHandler()
+    cur_z_step = args.z_initial
+    if args.anchor_dir:
+        event_handler.setup(args, dmodel, args.save_path, cur_z_step)
+
+        for f in sorted(os.listdir(args.anchor_dir)):
+            full_path = os.path.join(args.anchor_dir, f)
+            if os.path.isfile(full_path):
+                event_handler.process(full_path)
+
+        if args.watch:
+            print("Watching anchor directory {}".format(args.anchor_dir))
+            observer = Observer()
+            observer.schedule(event_handler, path=args.anchor_dir, recursive=False)
+            observer.start()
+
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                observer.stop()
+            observer.join()
+    # TODO: handle some of the others through event_handler
+    elif args.anchor_json:
         with open(args.anchor_json) as json_file:
             range_data = np.array(json.load(json_file)["points"])
             print range_data.shape
@@ -326,27 +376,6 @@ def sample(parser, context, args):
             cur_save_path = args.save_path_template.format(i)
             dmodel = run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, range_data=range_data)
             cur_z_step += z_step
-    elif args.anchor_dir:
-        event_handler = AnchorFileHandler()
-        event_handler.setup(args, dmodel, args.save_path, cur_z_step)
-
-        for f in sorted(os.listdir(args.anchor_dir)):
-            full_path = os.path.join(args.anchor_dir, f)
-            if os.path.isfile(full_path):
-                event_handler.process(full_path)
-
-        if args.watch:
-            print("Watching anchor directory {}".format(args.anchor_dir))
-            observer = Observer()
-            observer.schedule(event_handler, path=args.anchor_dir, recursive=False)
-            observer.start()
-
-            try:
-                while True:
-                    time.sleep(1)
-            except KeyboardInterrupt:
-                observer.stop()
-            observer.join()
     else:
         run_with_args(args, dmodel, args.anchor_image, args.save_path, cur_z_step)
 
