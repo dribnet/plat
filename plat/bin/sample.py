@@ -232,6 +232,8 @@ class AnchorFileHandler(FileSystemEventHandler):
 def sample(parser, context, args):
     parser.add_argument("--interface", dest='model_class', type=str,
                         default=None, help="class encapsulating model")
+    parser.add_argument('--preload-model', default=False, action='store_true',
+                        help="Load the model first before starting processing")
     parser.add_argument("--model", dest='model', type=str, default=None,
                         help="name of model in plat zoo")
     parser.add_argument("--model-file", dest='model_file', type=str, default=None,
@@ -360,6 +362,8 @@ def sample(parser, context, args):
         random.seed(args.seed)
 
     dmodel = None
+    if args.preload_model:
+        dmodel = zoo.load_model(args.model, args.model_file, args.model_type, args.model_interface)
     z_range = None
     range_data = None
     event_handler = AnchorFileHandler()
