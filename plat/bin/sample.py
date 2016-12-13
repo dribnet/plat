@@ -21,10 +21,6 @@ import plat.sampling
 from plat import zoo
 
 def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur_basename="basename", range_data=None):
-    if args.seed is not None:
-        np.random.seed(args.seed)
-        random.seed(args.seed)
-
     anchor_images = None
     if args.anchors:
         allowed = None
@@ -152,6 +148,11 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
     return dmodel
 
 class AnchorFileHandler(FileSystemEventHandler):
+    last_processed = None
+    # if we compute path lists, they are cached
+    anchor_path_list = None
+    anchor_path_names = None
+
     def setup(self, args, dmodel, save_path, cur_z_step):
         self.args = args
         self.dmodel = dmodel
@@ -163,27 +164,47 @@ class AnchorFileHandler(FileSystemEventHandler):
         if basename[0] == '.' or basename[0] == '_':
             print("Skipping anchor: {}".format(anchor))
             return;
-        print("Processing anchor: {}".format(anchor))
-        barename = os.path.splitext(basename)[0]
 
+        if anchor == self.last_processed:
+            print("Skipping duplicate anchor: {}".format(anchor))
+            return
+        else:
+            print("Processing anchor: {}".format(anchor))
+            self.last_processed = anchor
+
+        barename = os.path.splitext(basename)[0]
         z_range = None
         range_data = None
         if self.args.multistrip is not None:
             for n in range(self.args.multistrip):
                 self.args.anchor_offset_x = "{:d}".format(n)
                 self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename)
-        elif self.args.anchor_json:
-            with open(self.args.anchor_json) as json_file:
-                range_data = np.array(json.load(json_file)["points"])
-                print range_data.shape
-            z_range = 0, (len(range_data)-1)
+        elif self.args.anchor_jsons:
+            if self.anchor_path_list is None:
+                print("Reading anchor-jsons")
+                self.anchor_path_list = []
+                self.anchor_path_names = []
+                json_list = plat.sampling.real_glob(self.args.anchor_jsons)
+                for j in json_list:
+                    base = os.path.basename(j)
+                    self.anchor_path_names.append(os.path.splitext(base)[0])
+                    print("Opening {}".format(j))
+                    with open(j) as json_file:
+                        range_data = np.array(json.load(json_file)["points"])
+                        print range_data.shape
+                        self.anchor_path_list.append(range_data)
             cur_z_step = 0
             z_step = 1
         elif self.args.range is not None:
             z_range = map(int, self.args.range.split(","))
             z_step = args.z_step
             cur_z_step = args.z_initial
-        if z_range is not None:
+        if z_range is not None or self.anchor_path_list is not None:
+            if self.anchor_path_list is not None:
+                random_index = random.randint(0, len(self.anchor_path_list)-1)
+                print("Generating sequence with anchor path {}".format(self.anchor_path_names[random_index]))
+                range_data = self.anchor_path_list[random_index]
+                z_range = 0, (len(range_data)-1)
             template_low, template_high = z_range
             for i in range(template_low, template_high + 1):
                 # this is the tricky part to merge?
@@ -253,8 +274,8 @@ def sample(parser, context, args):
                         help="anchor-wave mode is clipped (don't wrap)")
     parser.add_argument('--anchor-noise', dest='anchor_noise', default=False, action='store_true',
                         help="interpret anchor offsets as noise paramaters")
-    parser.add_argument('--anchor-json', dest='anchor_json', default=False,
-                        help="a json path in n dimensions")
+    parser.add_argument('--anchor-jsons', dest='anchor_jsons', default=False,
+                        help="a json paths in n dimensions")
     parser.add_argument('--gradient', dest='gradient', default=False, action='store_true')
     parser.add_argument('--linear', dest='linear', default=False, action='store_true')
     parser.add_argument('--gaussian', dest='gaussian', default=False, action='store_true')
@@ -329,6 +350,10 @@ def sample(parser, context, args):
     if args.model is not None:
         zoo.check_model_download(args.model)
 
+    if args.seed is not None:
+        np.random.seed(args.seed)
+        random.seed(args.seed)
+
     dmodel = None
     z_range = None
     range_data = None
@@ -360,28 +385,24 @@ def sample(parser, context, args):
             except KeyboardInterrupt:
                 observer.stop()
             observer.join()
-    # TODO: handle some of the others through event_handler
-    elif args.anchor_json:
-        with open(args.anchor_json) as json_file:
-            range_data = np.array(json.load(json_file)["points"])
-            print range_data.shape
-        z_range = 0, (len(range_data)-1)
-        cur_z_step = 0
-        z_step = 1
+    elif args.anchor_jsons:
+        event_handler.setup(args, dmodel, args.save_path, cur_z_step)
+        event_handler.process(args.anchor_image)
     elif args.range is not None:
+        # TODO: migrate this case to event handler like anchor_jsons above
         z_range = map(int, args.range.split(","))
         z_step = args.z_step
         cur_z_step = args.z_initial
-    if z_range is not None:
-        template_low, template_high = z_range
-        for i in range(template_low, template_high + 1):
-            if args.anchor_image_template is not None:
-                cur_anchor_image = args.anchor_image_template.format(i)
-            else:
-                cur_anchor_image = args.anchor_image
-            cur_save_path = args.save_path_template.format(i)
-            dmodel = run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, range_data=range_data)
-            cur_z_step += z_step
+        if z_range is not None:
+            template_low, template_high = z_range
+            for i in range(template_low, template_high + 1):
+                if args.anchor_image_template is not None:
+                    cur_anchor_image = args.anchor_image_template.format(i)
+                else:
+                    cur_anchor_image = args.anchor_image
+                cur_save_path = args.save_path_template.format(i)
+                dmodel = run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, range_data=range_data)
+                cur_z_step += z_step
     else:
         run_with_args(args, dmodel, args.anchor_image, args.save_path, cur_z_step, barename)
 
