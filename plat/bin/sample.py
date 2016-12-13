@@ -20,7 +20,7 @@ from plat.utils import anchors_from_image, anchors_from_filelist, get_json_vecto
 import plat.sampling
 from plat import zoo
 
-def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur_basename="basename", range_data=None):
+def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur_basename="basename", range_data=None, template_dict={}):
     anchor_images = None
     if args.anchors:
         allowed = None
@@ -144,7 +144,8 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
     if global_offset is not None:
         z = z + global_offset
 
-    plat.sampling.grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, cur_basename, args, args.batch_size)
+    template_dict["BASENAME"] = cur_basename
+    plat.sampling.grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args, args.batch_size, template_dict=template_dict)
     return dmodel
 
 class AnchorFileHandler(FileSystemEventHandler):
@@ -160,6 +161,7 @@ class AnchorFileHandler(FileSystemEventHandler):
         self.cur_z_step = cur_z_step
 
     def process(self, anchor):
+        template_dict = {}
         basename = os.path.basename(anchor)
         if basename[0] == '.' or basename[0] == '_':
             print("Skipping anchor: {}".format(anchor))
@@ -178,7 +180,7 @@ class AnchorFileHandler(FileSystemEventHandler):
         if self.args.multistrip is not None:
             for n in range(self.args.multistrip):
                 self.args.anchor_offset_x = "{:d}".format(n)
-                self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename)
+                self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename, template_dict=template_dict)
         elif self.args.anchor_jsons:
             if self.anchor_path_list is None:
                 print("Reading anchor-jsons")
@@ -204,9 +206,12 @@ class AnchorFileHandler(FileSystemEventHandler):
                 random_index = random.randint(0, len(self.anchor_path_list)-1)
                 print("Generating sequence with anchor path {}".format(self.anchor_path_names[random_index]))
                 range_data = self.anchor_path_list[random_index]
-                z_range = 0, (len(range_data)-1)
+                template_dict["PATHNAME"] = self.anchor_path_names[random_index]
+                template_dict["PATHLEN"] = "{:03d}".format(len(range_data))
+                z_range = 0, len(range_data) - 1
             template_low, template_high = z_range
             for i in range(template_low, template_high + 1):
+                template_dict["CURZ"] = "{:03d}".format(i)
                 # this is the tricky part to merge?
                 if anchor:
                     cur_anchor_image = anchor
@@ -215,10 +220,10 @@ class AnchorFileHandler(FileSystemEventHandler):
                 else:
                     cur_anchor_image = self.args.anchor_image
                 cur_save_path = self.args.save_path_template.format(i)
-                self.dmodel = run_with_args(self.args, self.dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur_basename=barename, range_data=range_data)
+                self.dmodel = run_with_args(self.args, self.dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur_basename=barename, range_data=range_data, template_dict=template_dict)
                 cur_z_step += z_step
         else:
-            self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename)
+            self.dmodel = run_with_args(self.args, self.dmodel, anchor, self.save_path, self.cur_z_step, barename, template_dict=template_dict)
 
     def on_modified(self, event):
         if not event.is_directory:

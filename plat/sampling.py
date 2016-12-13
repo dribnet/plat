@@ -72,12 +72,15 @@ def generate_latent_grid(z_dim, rows, cols, fan, gradient, spherical, gaussian, 
     return z
 
 # this function can fill in placeholders for %DATE%, %SIZE% and %SEQ%
-def emit_filename(filename, args, image_size, basename):
+def emit_filename(filename, template_dict, args):
     datestr = datetime.datetime.now().strftime("%Y%m%d")
     filename = filename.replace('%DATE%', datestr)
-    filename = filename.replace('%SIZE%', "{:d}".format(image_size))
-    if basename is None:
-        basename = "Nobase"
+
+    for key in template_dict:
+        pattern = "%{}%".format(key)
+        value = "{}".format(template_dict[key])
+        filename = filename.replace(pattern, value)
+
     if args is not None:
         if args.model:
             model = args.model.replace(".", "_")
@@ -87,7 +90,6 @@ def emit_filename(filename, args, image_size, basename):
             seed = "{:d}".format(args.seed)
         else:
             seed = "NoSeed"
-        filename = filename.replace('%BASENAME%', basename)
         filename = filename.replace('%MODEL%', model)
         filename = filename.replace('%OFFSET%', "{:d}".format(args.offset))
         filename = filename.replace('%SEED%', seed)
@@ -104,7 +106,7 @@ def emit_filename(filename, args, image_size, basename):
         filename = candidate
     return filename
 
-def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, basename="basename", args=None, batch_size=24):
+def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, args=None, batch_size=24, template_dict={}):
     z_queue = z[:]
     samples = None
     # print("========> DECODING {} at a time".format(batch_size))
@@ -129,8 +131,8 @@ def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, sa
         return
 
     # each sample is 3xsizexsize
-    image_size = one_sample.shape[1]
-    final_save_path = emit_filename(save_path, args, image_size, basename);
+    template_dict["SIZE"] = one_sample.shape[1]
+    final_save_path = emit_filename(save_path, template_dict, args);
     print("Saving image file {}".format(final_save_path))
     dirname = os.path.dirname(final_save_path)
     if dirname != '' and not os.path.exists(dirname):
