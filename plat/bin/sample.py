@@ -61,7 +61,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
     if args.passthrough:
         # determine final filename string
         image_size = anchor_images[0].shape[1]
-        save_path = plat.sampling.emit_filename(cur_save_path, args, image_size);
+        save_path = plat.sampling.emit_filename(cur_save_path, args, image_size, None);
         print("Preparing image file {}".format(save_path))
         img = grid2img(anchor_images, args.rows, args.cols, not args.tight)
         img.save(save_path)
@@ -334,6 +334,12 @@ def sample(parser, context, args):
     range_data = None
     event_handler = AnchorFileHandler()
     cur_z_step = args.z_initial
+
+    barename = None
+    if args.anchor_image:
+        basename = os.path.basename(args.anchor_image)
+        barename = os.path.splitext(basename)[0]
+
     if args.anchor_dir:
         event_handler.setup(args, dmodel, args.save_path, cur_z_step)
 
@@ -377,7 +383,7 @@ def sample(parser, context, args):
             dmodel = run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, range_data=range_data)
             cur_z_step += z_step
     else:
-        run_with_args(args, dmodel, args.anchor_image, args.save_path, cur_z_step)
+        run_with_args(args, dmodel, args.anchor_image, args.save_path, cur_z_step, barename)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Plot model samples")
