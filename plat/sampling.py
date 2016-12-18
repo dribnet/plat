@@ -130,7 +130,7 @@ def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, sa
     final_save_path = emit_filename(save_path, args, image_size, basename);
     print("Saving image file {}".format(final_save_path))
     dirname = os.path.dirname(final_save_path)
-    if not os.path.exists(dirname):
+    if dirname != '' and not os.path.exists(dirname):
         os.makedirs(dirname)
     img = grid2img(samples, rows, cols, not tight)
     img.save(final_save_path)
