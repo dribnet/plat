@@ -3,6 +3,7 @@ import sys
 import json
 import numpy as np
 from sklearn import metrics
+from sklearn import svm
 import os
 
 import matplotlib
@@ -189,6 +190,40 @@ def averages_to_attribute_vectors(with_attr, without_attr, num_encoded_attribute
         atvecs[n] = m1 - m2
     return atvecs
 
+def averages_to_svm_attribute_vectors(with_attr, without_attr, num_encoded_attributes, latent_dim):
+    h = .02  # step size in the mesh
+    C = 1.0  # SVM regularization parameter
+    atvecs = np.zeros((num_encoded_attributes, latent_dim))
+    for n in range(num_encoded_attributes):
+        X_arr = []
+        y_arr = []
+        for l in range(len(with_attr[n])):
+            X_arr.append(with_attr[n][l])
+            y_arr.append(True)
+        for l in range(len(without_attr[n])):
+            X_arr.append(without_attr[n][l])
+            y_arr.append(False)
+        X = np.array(X_arr)
+        y = np.array(y_arr)
+        # svc = svm.LinearSVC(C=C, class_weight="balanced").fit(X, y)
+        svc = svm.LinearSVC(C=C).fit(X, y)
+        # get the separating hyperplane
+        w = svc.coef_[0]
+        print(w)
+        atvecs[n] = w
+    return atvecs
+
+    X_arr = []
+    y_arr = []
+    for n in range(len(with_attr)):
+        X_arr.append()
+    atvecs = np.zeros((num_encoded_attributes, latent_dim))
+    for n in range(num_encoded_attributes):
+        m1 = np.mean(with_attr[n],axis=0)
+        m2 = np.mean(without_attr[n],axis=0)
+        atvecs[n] = m1 - m2
+    return atvecs
+
 #TODO: switch to plat.save_json_vectors
 def save_json_attribs(attribs, filename):
     with open(filename, 'w') as outfile:
@@ -313,16 +348,16 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile):
     plt.legend(loc="lower right")
     plt.savefig('{}_roc.png'.format(outfile), bbox_inches='tight')
 
-    # the histogram of the data
-    plt.figure()
-    n, bins, patches = plt.hist(scores, 50, facecolor='blue', alpha=0.75)
-    plt.xlabel('Attribute')
-    plt.ylabel('Probability')
-    plt.title('Histogram of {}'.format(title))
-    # plt.axis([40, 160, 0, 0.03])
-    plt.grid(True)
-    plt.axvline(threshold, color='b', linestyle='dashed', linewidth=2)
-    plt.savefig('{}_hist_all.png'.format(outfile), bbox_inches='tight')
+    # # the histogram of the data
+    # plt.figure()
+    # n, bins, patches = plt.hist(scores, 50, facecolor='blue', alpha=0.75)
+    # plt.xlabel('Attribute')
+    # plt.ylabel('Probability')
+    # plt.title('Histogram of {}'.format(title))
+    # # plt.axis([40, 160, 0, 0.03])
+    # plt.grid(True)
+    # plt.axvline(threshold, color='b', linestyle='dashed', linewidth=2)
+    # plt.savefig('{}_hist_all.png'.format(outfile), bbox_inches='tight')
 
     # split histogram
     plt.figure()
@@ -334,7 +369,7 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile):
     # plt.axis([40, 160, 0, 0.03])
     plt.grid(True)
     plt.axvline(threshold, color='b', linestyle='dashed', linewidth=2)
-    plt.savefig('{}_hist_both.png'.format(outfile), bbox_inches='tight')
+    plt.savefig('{}_hist.png'.format(outfile), bbox_inches='tight')
 
 def get_attribs_from_file(file):
     with open(file) as f:
@@ -357,6 +392,8 @@ def atvec(parser, context, args):
                         help="Comma separated list of json arrays")
     parser.add_argument('--thresh', dest='thresh', default=False, action='store_true',
                         help="Compute thresholds for attribute vectors classifiers")
+    parser.add_argument('--svm', dest='svm', default=False, action='store_true',
+                        help="Use SVM for computing attribute vectors")
     parser.add_argument('--roc', dest='roc', default=False, action='store_true',
                         help="ROC curve of selected attribute vectors")
     parser.add_argument("--attribute-vectors", dest='attribute_vectors', default=None,
@@ -427,7 +464,10 @@ def atvec(parser, context, args):
         with_attr, without_attr = get_averages(attribs, encoded, args.num_attribs);
         num_attribs = args.num_attribs
 
-    atvects = averages_to_attribute_vectors(with_attr, without_attr, num_attribs, z_dim)
+    if args.svm:
+        atvects = averages_to_svm_attribute_vectors(with_attr, without_attr, num_attribs, z_dim)
+    else:
+        atvects = averages_to_attribute_vectors(with_attr, without_attr, num_attribs, z_dim)
     print("Computed atvecs shape: {}".format(atvects.shape))
 
     if args.outfile is not None:

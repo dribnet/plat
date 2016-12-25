@@ -131,6 +131,7 @@ if [ ! -f "$JSON_SUBDIR/atvecs_all.json" ]; then
       --dataset "$DATASET_VALUE" \
       --split train \
       --num-attribs 40 \
+      --svm \
       --encoded-vectors "$JSON_SUBDIR/train_vectors.json" \
       --outfile "$JSON_SUBDIR/atvecs_all.json"
 
