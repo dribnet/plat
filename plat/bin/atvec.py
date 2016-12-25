@@ -209,7 +209,7 @@ def averages_to_svm_attribute_vectors(with_attr, without_attr, num_encoded_attri
         svc = svm.LinearSVC(C=C).fit(X, y)
         # get the separating hyperplane
         w = svc.coef_[0]
-        print(w)
+        # print(w)
         atvecs[n] = w
     return atvecs
 
