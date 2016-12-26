@@ -394,6 +394,8 @@ def atvec(parser, context, args):
                         help="Compute thresholds for attribute vectors classifiers")
     parser.add_argument('--svm', dest='svm', default=False, action='store_true',
                         help="Use SVM for computing attribute vectors")
+    parser.add_argument("--limit", dest='limit', type=int, default=None,
+                        help="Limit number of inputs when computing atvecs")
     parser.add_argument('--roc', dest='roc', default=False, action='store_true',
                         help="ROC curve of selected attribute vectors")
     parser.add_argument("--attribute-vectors", dest='attribute_vectors', default=None,
@@ -428,6 +430,8 @@ def atvec(parser, context, args):
         sys.exit(0)
 
     encoded = json_list_to_array(args.encoded_vectors)
+    if args.limit is not None:
+        encoded = encoded[:args.limit]
     num_rows, z_dim = encoded.shape
     if args.dataset:
         attribs = np.array(list(get_dataset_iterator(args.dataset, args.split, include_features=False, include_targets=True)))
