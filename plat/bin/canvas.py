@@ -11,9 +11,11 @@ from scipy.misc import imread, imsave
 
 from plat.utils import anchors_from_image, get_json_vectors, offset_from_string
 from plat.canvas_layout import create_mine_canvas
+import plat.sampling
 
 from PIL import Image
 import importlib
+from plat import zoo
 
 channels = 4
 
@@ -123,6 +125,7 @@ class Canvas:
                     alpha_composite(im, self.mask, self.pixels[:, (cy-self.gsize2):(cy+self.gsize2), (cx-self.gsize2):(cx+self.gsize2)])
 
     def save(self, save_path):
+        print("Preparing image file {}".format(save_path))
         out = np.dstack(self.pixels)
         out = (255 * out).astype(np.uint8)
         img = Image.fromarray(out)
@@ -152,12 +155,17 @@ def make_mask_layout(height, width, radius):
                 I[y][x] = 255
     return I
 
-def main(cliargs):
+def canvas(parser, context, args):
     parser = argparse.ArgumentParser(description="Plot model samples")
-    parser.add_argument("--interface", dest='model_class', type=str,
-                        default="plat.interface.discgen.DiscGenModel", help="class encapsulating model")
     parser.add_argument("--model", dest='model', type=str, default=None,
+                        help="name of model in plat zoo")
+    parser.add_argument("--model-file", dest='model_file', type=str, default=None,
                         help="path to the saved model")
+    parser.add_argument("--model-type", dest='model_type', type=str, default=None,
+                        help="the type of model (usually inferred from filename)")
+    parser.add_argument("--model-interface", dest='model_interface', type=str,
+                        default=None,
+                        help="class interface for model (usually inferred from model-type)")
     parser.add_argument("--width", type=int, default=512,
                         help="width of canvas to render in pixels")
     parser.add_argument("--height", type=int, default=512,
@@ -174,7 +182,7 @@ def main(cliargs):
                         help="min y in virtual space")
     parser.add_argument("--ymax", type=int, default=100,
                         help="max y in virtual space")
-    parser.add_argument("--save-path", type=str, default="out.png",
+    parser.add_argument("--outfile", dest='save_path', type=str, default="canvas_%DATE%_%MODEL%_%SEQ%.png",
                         help="where to save the generated samples")
     parser.add_argument("--seed", type=int,
                         default=None, help="Optional random seed")
@@ -212,7 +220,7 @@ def main(cliargs):
                         help="which indices to combine for offset b")
     parser.add_argument("--image-size", dest='image_size', type=int, default=64,
                         help="size of (offset) images")
-    args = parser.parse_args(cliargs)
+    args = parser.parse_args(args)
 
     if args.seed:
         np.random.seed(args.seed)
@@ -226,13 +234,7 @@ def main(cliargs):
 
     anchors = None
     if not args.passthrough:
-        model_class_parts = args.model_class.split(".")
-        model_class_name = model_class_parts[-1]
-        model_module_name = ".".join(model_class_parts[:-1])
-        print("Loading {} interface from {}".format(model_class_name, model_module_name))        
-        ModelClass = getattr(importlib.import_module(model_module_name), model_class_name)
-        print("Loading model from {}".format(args.model))
-        dmodel = ModelClass(filename=args.model)
+        dmodel = zoo.load_model(args.model, args.model_file, args.model_type, args.model_interface)
 
         if anchor_images is not None:
             anchors = dmodel.encode_images(anchor_images)
@@ -321,7 +323,11 @@ def main(cliargs):
         for i in range(len(curq)):
             canvas.place_image(images[i], curq[i]["x"], curq[i]["y"], args.additive)
 
-    canvas.save(args.save_path)
+    template_dict = {}
+    template_dict["SIZE"] = args.image_size
+    outfile = plat.sampling.emit_filename(args.save_path, template_dict, args);
+    canvas.save(outfile)
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(description="Plot model samples on canvas")
+    canvas(parser, None, sys.argv[1:])

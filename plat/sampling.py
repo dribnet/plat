@@ -82,6 +82,7 @@ def emit_filename(filename, template_dict, args):
         filename = filename.replace(pattern, value)
 
     if args is not None:
+        # legacy replacements
         if args.model:
             model = args.model.replace(".", "_")
         else:
@@ -90,12 +91,18 @@ def emit_filename(filename, template_dict, args):
             seed = "{:d}".format(args.seed)
         else:
             seed = "NoSeed"
-        filename = filename.replace('%MODEL%', model)
-        filename = filename.replace('%OFFSET%', "{:d}".format(args.offset))
-        filename = filename.replace('%SEED%', seed)
-        filename = filename.replace('%ROWS%', "{:d}".format(args.rows))
-        filename = filename.replace('%COLS%', "{:d}".format(args.cols))
-        filename = filename.replace('%INDEX%', "{}".format(args.anchor_offset_x))
+        if '%MODEL%' in filename:
+            filename = filename.replace('%MODEL%', model)
+        if '%OFFSET%' in filename:
+            filename = filename.replace('%OFFSET%', "{:d}".format(args.offset))
+        if '%SEED%' in filename:
+            filename = filename.replace('%SEED%', seed)
+        if '%ROWS%' in filename:
+            filename = filename.replace('%ROWS%', "{:d}".format(args.rows))
+        if '%COLS%' in filename:
+            filename = filename.replace('%COLS%', "{:d}".format(args.cols))
+        if '%INDEX%' in filename:
+            filename = filename.replace('%INDEX%', "{}".format(args.anchor_offset_x))
     if '%SEQ%' in filename:
         # determine what the next available number is
         cur_seq = 1
