@@ -7,7 +7,7 @@ import numpy as np
 import random
 import sys
 import json
-from scipy.misc import imread, imsave
+from scipy.misc import imread, imsave, imresize
 
 from plat.utils import anchors_from_image, get_json_vectors, offset_from_string
 from plat.canvas_layout import create_mine_canvas
@@ -34,7 +34,10 @@ def alpha_composite(src, src_mask, dst):
     alpha = np.index_exp[3:, :, :]
     rgb = np.index_exp[:3, :, :]
     epsilon = 0.001
-    src_a = np.maximum(src_mask, epsilon)
+    if src_mask is not None:
+        src_a = np.maximum(src_mask, epsilon)
+    else:
+        src_a = 1.0
     dst_a = np.maximum(dst[alpha], epsilon)
     out[alpha] = src_a+dst_a*(1-src_a)
     old_setting = np.seterr(invalid = 'ignore')
@@ -50,7 +53,10 @@ def additive_composite(src, src_mask, dst):
     out = np.empty(dst.shape, dtype = 'float')
     alpha = np.index_exp[3:, :, :]
     rgb = np.index_exp[:3, :, :]
-    out[alpha] = np.maximum(src_mask,dst[alpha])
+    if src_mask is not None:
+        out[alpha] = np.maximum(src_mask,dst[alpha])
+    else:
+        out[alpha] = 1.0
     out[rgb] = np.maximum(src[rgb],dst[rgb])
     np.clip(out,0,1.0)
     return out
@@ -61,7 +67,7 @@ def additive_composite(src, src_mask, dst):
 class Canvas:
     """Simple Canvas Thingy"""
 
-    def __init__(self, width, height, xmin, xmax, ymin, ymax, mask_name, image_size, init_black=False):
+    def __init__(self, width, height, xmin, xmax, ymin, ymax, mask_name, image_size, do_check_bounds, init_black=False):
         self.pixels = np.zeros((channels, height, width))
         if init_black:
             alpha_channel = np.index_exp[3:, :, :]
@@ -75,6 +81,8 @@ class Canvas:
         self.ymin = ymin
         self.ymax = ymax
 
+        self.do_check_bounds = do_check_bounds
+
         self.canvas_xspread = self.canvas_xmax - self.canvas_xmin
         self.canvas_yspread = self.canvas_ymax - self.canvas_ymin
         self.xspread = self.xmax - self.xmin
@@ -84,11 +92,15 @@ class Canvas:
 
         self.gsize = image_size
         self.gsize2 = image_size/2
+        self.gsize4 = image_size/4
 
-        _, _, mask_images = anchors_from_image("mask/{}_mask{}.png".format(mask_name, image_size), image_size=(image_size, image_size))
-        # _, _, mask_images = anchors_from_image("mask/rounded_mask{}.png".format(gsize), image_size=(gsize, gsize))
-        # _, _, mask_images = anchors_from_image("mask/hexagons/hex1_{}_blur.png".format(gsize), image_size=(gsize, gsize))
-        self.mask = mask_images[0][0]
+        if mask_name is not None:
+            _, _, mask_images = anchors_from_image("mask/{}_mask{}.png".format(mask_name, image_size), image_size=(image_size, image_size))
+            # _, _, mask_images = anchors_from_image("mask/rounded_mask{}.png".format(gsize), image_size=(gsize, gsize))
+            # _, _, mask_images = anchors_from_image("mask/hexagons/hex1_{}_blur.png".format(gsize), image_size=(gsize, gsize))
+            self.mask = mask_images[0][0]
+        else:
+            self.mask = None
 
     # To map
     # [A, B] --> [a, b]
@@ -101,28 +113,58 @@ class Canvas:
         new_y = int((y - self.ymin) * self.yspread_ratio + self.canvas_ymin)
         return new_x, new_y
 
-    def place_square(self, x, y):
+    def place_square(self, x, y, s):
         square = np.zeros((channels, self.gsize, self.gsize))
         square.fill(1)
         cx, cy = self.map_to_canvas(x, y)
         self.pixels[:, (cy-self.gsize2):(cy+self.gsize2), (cx-self.gsize2):(cx+self.gsize2)] = square
 
-    def check_bounds(self, cx, cy):
-        border = self.gsize2
-        if (cx < self.canvas_xmin + border) or (cy < self.canvas_ymin + border) or (cx >= self.canvas_xmax - border) or (cy >= self.canvas_ymax - border):
+    def check_bounds(self, cx, cy, border):
+        if not self.do_check_bounds:
+            return True
+        if (cx < self.canvas_xmin + border) or (cy < self.canvas_ymin + border) or (cx > self.canvas_xmax - border) or (cy > self.canvas_ymax - border):
             return False
         return True
 
-    def place_image(self, im, x, y, additive=False):
+    def place_image(self, im, x, y, additive=False, scale=None):
         square = im
         cx, cy = self.map_to_canvas(x, y)
-        if self.check_bounds(cx, cy):
-            if additive:
-                self.pixels[:, (cy-self.gsize2):(cy+self.gsize2), (cx-self.gsize2):(cx+self.gsize2)] = \
-                    additive_composite(im, self.mask, self.pixels[:, (cy-self.gsize2):(cy+self.gsize2), (cx-self.gsize2):(cx+self.gsize2)])
-            else:
-                self.pixels[:, (cy-self.gsize2):(cy+self.gsize2), (cx-self.gsize2):(cx+self.gsize2)] = \
-                    alpha_composite(im, self.mask, self.pixels[:, (cy-self.gsize2):(cy+self.gsize2), (cx-self.gsize2):(cx+self.gsize2)])
+        if scale is 1:
+            border = self.gsize
+            slices = [
+                slice(0, 4),
+                slice(cy-border, cy+border),
+                slice(cx-border, cx+border)
+            ]
+            out_stack = np.dstack(im)
+            out_stack = (255 * out_stack).astype(np.uint8)
+            rawim = imresize(out_stack, 200)
+            s_im = np.asarray([rawim[:,:,0]/255.0, rawim[:,:,1]/255.0, rawim[:,:,2]/255.0])
+        elif scale is -1:
+            border = self.gsize4
+            slices = [
+                slice(0, 4),
+                slice(cy-border, cy+border),
+                slice(cx-border, cx+border)
+            ]
+            out_stack = np.dstack(im)
+            out_stack = (255 * out_stack).astype(np.uint8)
+            rawim = imresize(out_stack, 50)
+            s_im = np.asarray([rawim[:,:,0]/255.0, rawim[:,:,1]/255.0, rawim[:,:,2]/255.0])
+        else:
+            border = self.gsize2
+            slices = [
+                slice(0, 4),
+                slice(cy-border, cy+border),
+                slice(cx-border, cx+border)
+            ]
+            s_im = im
+        if not self.check_bounds(cx, cy, border):
+            return
+        if additive:
+            self.pixels[slices] = additive_composite(s_im, self.mask, self.pixels[slices])
+        else:
+            self.pixels[slices] = alpha_composite(s_im, self.mask, self.pixels[slices])
 
     def save(self, save_path):
         print("Preparing image file {}".format(save_path))
@@ -186,6 +228,8 @@ def canvas(parser, context, args):
                         help="where to save the generated samples")
     parser.add_argument("--seed", type=int,
                         default=None, help="Optional random seed")
+    parser.add_argument('--do-check-bounds', dest='do_check_bounds', default=False, action='store_true',
+                        help="clip to drawing bounds")
     parser.add_argument('--anchor-image', dest='anchor_image', default=None,
                         help="use image as source of anchors")
     parser.add_argument('--anchor-mine', dest='anchor_mine', default=None,
@@ -194,7 +238,7 @@ def canvas(parser, context, args):
                         help="use random sampling as source of mine coordinates")
     parser.add_argument('--additive', dest='additive', default=False, action='store_true',
                         help="use additive compositing")
-    parser.add_argument('--mask-name', dest='mask_name', default="rounded",
+    parser.add_argument('--mask-name', dest='mask_name', default=None,
                         help="prefix name for alpha mask to use (full/rounded/hex")
     parser.add_argument('--mask-layout', dest='mask_layout', default=None,
                         help="use image as source of mine grid points")
@@ -247,7 +291,7 @@ def canvas(parser, context, args):
         # compute anchors as offsets from existing anchor
         anchor_offsets = get_json_vectors(args.anchor_offset)
 
-    canvas = Canvas(args.width, args.height, args.xmin, args.xmax, args.ymin, args.ymax, args.mask_name, args.image_size)
+    canvas = Canvas(args.width, args.height, args.xmin, args.xmax, args.ymin, args.ymax, args.mask_name, args.image_size, args.do_check_bounds)
     workq = []
 
     do_hex = True
@@ -257,15 +301,23 @@ def canvas(parser, context, args):
             layout_data = json.load(json_file)
         xy = np.array(layout_data["xy"])
         roots = layout_data["r"]
+        if "s" in layout_data:
+            s = layout_data["s"]
+        else:
+            s = None
         for i, pair in enumerate(xy):
             x = pair[0] * canvas.xmax
             y = pair[1] * canvas.ymax
             a = pair[0]
             b = pair[1]
             r = roots[i]
+            if s is None:
+                scale = None
+            else:
+                scale = s[i]
             if args.passthrough:
                 output_image = anchor_images[r]
-                canvas.place_image(output_image, x, y, args.additive)
+                canvas.place_image(output_image, x, y, args.additive, scale=scale)
             else:
                 if args.anchor_mine is not None or args.random_mine:
                     z = create_mine_canvas(args.rows, args.cols, b, a, anchors)
@@ -276,7 +328,8 @@ def canvas(parser, context, args):
                 workq.append({
                         "z": z,
                         "x": x,
-                        "y": y
+                        "y": y,
+                        "s": scale
                     })
 
     elif args.mask_layout or args.mask_radius:
@@ -312,7 +365,8 @@ def canvas(parser, context, args):
                     workq.append({
                             "z": z,
                             "x": x,
-                            "y": y
+                            "y": y,
+                            "s": 0
                         })
 
     while(len(workq) > 0):
@@ -321,7 +375,7 @@ def canvas(parser, context, args):
         latents = [e["z"] for e in curq]
         images = dmodel.sample_at(np.array(latents))
         for i in range(len(curq)):
-            canvas.place_image(images[i], curq[i]["x"], curq[i]["y"], args.additive)
+            canvas.place_image(images[i], curq[i]["x"], curq[i]["y"], args.additive, scale=curq[i]["s"])
 
     template_dict = {}
     template_dict["SIZE"] = args.image_size
