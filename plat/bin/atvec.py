@@ -210,7 +210,15 @@ def averages_to_svm_attribute_vectors(with_attr, without_attr, num_encoded_attri
         # get the separating hyperplane
         w = svc.coef_[0]
         # print(w)
-        atvecs[n] = w
+
+        #FIXME: this is a scaling hack.
+        m1 = np.mean(with_attr[n],axis=0)
+        m2 = np.mean(without_attr[n],axis=0)
+        mean_vector = m1 - m2
+        mean_length = np.linalg.norm(mean_vector)
+        svn_length = np.linalg.norm(w)
+
+        atvecs[n] = (mean_length / svn_length)  * w
     return atvecs
 
     X_arr = []
@@ -410,6 +418,8 @@ def atvec(parser, context, args):
                         help="Balance attributes and generate atvec. eg: 20,21,31")
     parser.add_argument("--avg-diff", dest='avg_diff', type=str, default=None,
                         help="Two lists of vectors to average and then diff")
+    parser.add_argument("--svm-diff", dest='svm_diff', type=str, default=None,
+                        help="Two lists of vectors to average and then svm diff")
     parser.add_argument('--outfile', dest='outfile', default=None,
                         help="Output json file for vectors.")
     args = parser.parse_args(args)
@@ -425,6 +435,43 @@ def atvec(parser, context, args):
         z_dim, = atvec.shape
         atvecs = atvec.reshape(1,z_dim)
         print("Computed diff shape: {}".format(atvecs.shape))
+        if args.outfile is not None:
+            save_json_attribs(atvecs, args.outfile)
+        sys.exit(0)
+
+    if args.svm_diff:
+        vecs1, vecs2 = args.avg_diff.split(",")
+        encoded1 = json_list_to_array(vecs1)
+        encoded2 = json_list_to_array(vecs2)
+        print("Taking the svm difference between {} and {} vectors".format(len(encoded1), len(encoded2)))
+        h = .02  # step size in the mesh
+        C = 1.0  # SVM regularization parameter
+        X_arr = []
+        y_arr = []
+        for l in range(len(encoded1)):
+            X_arr.append(encoded1[l])
+            y_arr.append(True)
+        for l in range(len(encoded2)):
+            X_arr.append(encoded2[l])
+            y_arr.append(False)
+        X = np.array(X_arr)
+        y = np.array(y_arr)
+        # svc = svm.LinearSVC(C=C, class_weight="balanced").fit(X, y)
+        svc = svm.LinearSVC(C=C).fit(X, y)
+        # get the separating hyperplane
+        w = svc.coef_[0]
+
+        #FIXME: this is a scaling hack.
+        m1 = np.mean(encoded1,axis=0)
+        m2 = np.mean(encoded2,axis=0)
+        mean_vector = m1 - m2
+        mean_length = np.linalg.norm(mean_vector)
+        svn_length = np.linalg.norm(w)
+
+        atvec = (mean_length / svn_length)  * w
+        z_dim, = atvec.shape
+        atvecs = atvec.reshape(1,z_dim)
+        print("Computed svm diff shape: {}".format(atvecs.shape))
         if args.outfile is not None:
             save_json_attribs(atvecs, args.outfile)
         sys.exit(0)
