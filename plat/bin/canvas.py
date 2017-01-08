@@ -280,8 +280,16 @@ def canvas(parser, context, args):
     if not args.passthrough:
         dmodel = zoo.load_model(args.model, args.model_file, args.model_type, args.model_interface)
 
-        if anchor_images is not None:
-            anchors = dmodel.encode_images(anchor_images)
+        workq = anchor_images[:]
+        anchors_list = []
+        while(len(workq) > 0):
+            print("Processing {} anchors".format(args.batch_size))
+            curq = workq[:args.batch_size]
+            workq = workq[args.batch_size:]
+            cur_anchors = dmodel.encode_images(curq)
+            for c in cur_anchors:
+                anchors_list.append(c)
+        anchors = np.asarray(anchors_list)
 
     if anchors is None:
         anchors = np.random.normal(loc=0, scale=1, size=(args.cols * args.rows, 100))
