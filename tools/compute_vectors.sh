@@ -135,12 +135,27 @@ if [ ! -f "$JSON_SUBDIR/atvecs_all.json" ]; then
       --encoded-vectors "$JSON_SUBDIR/train_vectors.json" \
       --outfile "$JSON_SUBDIR/atvecs_all.json"
 
+    $PLATCMD atvec --dataset=$DATASET_VALUE \
+      --dataset "$DATASET_VALUE" \
+      --split train \
+      --num-attribs 40 \
+      --encoded-vectors "$JSON_SUBDIR/train_vectors.json" \
+      --outfile "$JSON_SUBDIR/atvecs_all_mean.json"
+
     atvec_thresh "$JSON_SUBDIR/atvecs_all.json" "$JSON_SUBDIR/atvecs_all_thresholds.json"
     for index in "${!celeba_attribs[@]}"; do
         atvec_roc     "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]} "$JSON_SUBDIR/atvecs_all_thresholds.json"
     done
     for index in "${!celeba_attribs[@]}"; do
         sample_vector "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]}
+    done
+
+    atvec_thresh "$JSON_SUBDIR/atvecs_all_mean.json" "$JSON_SUBDIR/atvecs_all_mean_thresholds.json"
+    for index in "${!celeba_attribs[@]}"; do
+        atvec_roc     "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_"${celeba_attribs[$index]} "$JSON_SUBDIR/atvecs_all_mean_thresholds.json"
+    done
+    for index in "${!celeba_attribs[@]}"; do
+        sample_vector "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_mean_"${celeba_attribs[$index]}
     done
 fi
 
@@ -149,13 +164,26 @@ if [ ! -f "$JSON_SUBDIR/atvecs_balanced_20_21_31.json" ]; then
       --dataset "$DATASET_VALUE" \
       --split train \
       --num-attribs 40 \
+      --svm \
       --encoded-vectors $JSON_SUBDIR/train_vectors.json \
       --balanced 20,21,31 \
       --outfile "$JSON_SUBDIR/atvecs_balanced_20_21_31.json"
 
+    $PLATCMD atvec --dataset=$DATASET_VALUE \
+      --dataset "$DATASET_VALUE" \
+      --split train \
+      --num-attribs 40 \
+      --encoded-vectors $JSON_SUBDIR/train_vectors.json \
+      --balanced 20,21,31 \
+      --outfile "$JSON_SUBDIR/atvecs_balanced_mean_20_21_31.json"
+
     sample_vector "$JSON_SUBDIR/atvecs_balanced_20_21_31.json" "0" "balanced_male"
     sample_vector "$JSON_SUBDIR/atvecs_balanced_20_21_31.json" "1" "balanced_open"
     sample_vector "$JSON_SUBDIR/atvecs_balanced_20_21_31.json" "2" "balanced_smile"
+
+    sample_vector "$JSON_SUBDIR/atvecs_balanced_mean_20_21_31.json" "0" "balanced_male"
+    sample_vector "$JSON_SUBDIR/atvecs_balanced_mean_20_21_31.json" "1" "balanced_open"
+    sample_vector "$JSON_SUBDIR/atvecs_balanced_mean_20_21_31.json" "2" "balanced_smile"
 fi
 
 if [ ! -f "$JSON_SUBDIR/unblurred_train_vectors_10k.json" ]; then
@@ -188,16 +216,28 @@ fi
 
 if [ ! -f "$JSON_SUBDIR/atvec_blur1.json" ]; then
     $PLATCMD atvec \
-      --avg-diff "$JSON_SUBDIR/unblurred_train_vectors_10k.json,$JSON_SUBDIR/blurred1_train_vectors_10k.json" \
+      --svm-diff "$JSON_SUBDIR/unblurred_train_vectors_10k.json,$JSON_SUBDIR/blurred1_train_vectors_10k.json" \
       --outfile "$JSON_SUBDIR/atvec_blur1.json"
 
     sample_vector "$JSON_SUBDIR/atvec_blur1.json" "0" "blur1"
+
+    $PLATCMD atvec \
+      --avg-diff "$JSON_SUBDIR/unblurred_train_vectors_10k.json,$JSON_SUBDIR/blurred1_mean_train_vectors_10k.json" \
+      --outfile "$JSON_SUBDIR/atvec_blur1_mean.json"
+
+    sample_vector "$JSON_SUBDIR/atvec_blur1_mean.json" "0" "blur1_mean"
 fi
 
 if [ ! -f "$JSON_SUBDIR/atvec_blur2.json" ]; then
     $PLATCMD atvec \
-      --avg-diff "$JSON_SUBDIR/unblurred_train_vectors_10k.json,$JSON_SUBDIR/blurred2_train_vectors_10k.json" \
+      --svm-diff "$JSON_SUBDIR/unblurred_train_vectors_10k.json,$JSON_SUBDIR/blurred2_train_vectors_10k.json" \
       --outfile "$JSON_SUBDIR/atvec_blur2.json"
+
+    sample_vector "$JSON_SUBDIR/atvec_blur2.json" "0" "blur2"
+
+    $PLATCMD atvec \
+      --avg-diff "$JSON_SUBDIR/unblurred_train_vectors_10k.json,$JSON_SUBDIR/blurred2_train_vectors_10k.json" \
+      --outfile "$JSON_SUBDIR/atvec_blur2_mean.json"
 
     sample_vector "$JSON_SUBDIR/atvec_blur2.json" "0" "blur2"
 fi
@@ -229,6 +269,12 @@ for EMOTION in "angry" "contemptuous" "disgusted" "fearful" "happy" "sad" "surpr
           --outfile "$JSON_SUBDIR/atvec_rafd_"$EMOTION".json"
 
         sample_vector "$JSON_SUBDIR/atvec_rafd_"$EMOTION".json" "0" "rafd_"$EMOTION
+
+        $PLATCMD atvec \
+          --avg-diff "$JSON_SUBDIR/rafd_neutral_vectors.json","$JSON_SUBDIR/rafd_"$EMOTION"_vectors.json" \
+          --outfile "$JSON_SUBDIR/atvec_rafd_mean_"$EMOTION".json"
+
+        sample_vector "$JSON_SUBDIR/atvec_rafd_mean_"$EMOTION".json" "0" "rafd_"$EMOTION
     fi
 done
 
@@ -264,7 +310,7 @@ fi
 
 if [ ! -f "$JSON_SUBDIR/atvec_rafd_eye_straight_to_right.json" ]; then
     $PLATCMD atvec \
-      --avg-diff "$JSON_SUBDIR/rafd_eye_straight_vectors.json","$JSON_SUBDIR/rafd_eye_right_vectors.json" \
+      --svm-diff "$JSON_SUBDIR/rafd_eye_straight_vectors.json","$JSON_SUBDIR/rafd_eye_right_vectors.json" \
       --outfile "$JSON_SUBDIR/atvec_rafd_eye_straight_to_right.json"
 
     sample_vector "$JSON_SUBDIR/atvec_rafd_eye_straight_to_right.json" "0" "rafd_eye_straight_to_right"
@@ -272,7 +318,7 @@ fi
 
 if [ ! -f "$JSON_SUBDIR/atvec_rafd_eye_straight_to_left.json" ]; then
     $PLATCMD atvec \
-      --avg-diff "$JSON_SUBDIR/rafd_eye_straight_vectors.json","$JSON_SUBDIR/rafd_eye_left_vectors.json" \
+      --svm-diff "$JSON_SUBDIR/rafd_eye_straight_vectors.json","$JSON_SUBDIR/rafd_eye_left_vectors.json" \
       --outfile "$JSON_SUBDIR/atvec_rafd_eye_straight_to_left.json"
 
     sample_vector "$JSON_SUBDIR/atvec_rafd_eye_straight_to_left.json" "0" "rafd_eye_straight_to_left"
@@ -280,7 +326,7 @@ fi
 
 if [ ! -f "$JSON_SUBDIR/atvec_rafd_eye_left_to_right.json" ]; then
     $PLATCMD atvec \
-      --avg-diff "$JSON_SUBDIR/rafd_eye_left_vectors.json","$JSON_SUBDIR/rafd_eye_right_vectors.json" \
+      --svm-diff "$JSON_SUBDIR/rafd_eye_left_vectors.json","$JSON_SUBDIR/rafd_eye_right_vectors.json" \
       --outfile "$JSON_SUBDIR/atvec_rafd_eye_left_to_right.json"
 
     sample_vector "$JSON_SUBDIR/atvec_rafd_eye_left_to_right.json" "0" "rafd_eye_left_to_right"
@@ -318,7 +364,7 @@ fi
 
 if [ ! -f "$JSON_SUBDIR/atvec_rafd_straight_to_right.json" ]; then
     $PLATCMD atvec \
-      --avg-diff "$JSON_SUBDIR/rafd_straight_vectors.json","$JSON_SUBDIR/rafd_right_vectors.json" \
+      --svm-diff "$JSON_SUBDIR/rafd_straight_vectors.json","$JSON_SUBDIR/rafd_right_vectors.json" \
       --outfile "$JSON_SUBDIR/atvec_rafd_straight_to_right.json"
 
     sample_vector "$JSON_SUBDIR/atvec_rafd_straight_to_right.json" "0" "rafd_straight_to_right"
@@ -326,7 +372,7 @@ fi
 
 if [ ! -f "$JSON_SUBDIR/atvec_rafd_straight_to_left.json" ]; then
     $PLATCMD atvec \
-      --avg-diff "$JSON_SUBDIR/rafd_straight_vectors.json","$JSON_SUBDIR/rafd_left_vectors.json" \
+      --svm-diff "$JSON_SUBDIR/rafd_straight_vectors.json","$JSON_SUBDIR/rafd_left_vectors.json" \
       --outfile "$JSON_SUBDIR/atvec_rafd_straight_to_left.json"
 
     sample_vector "$JSON_SUBDIR/atvec_rafd_straight_to_left.json" "0" "rafd_straight_to_left"
@@ -334,7 +380,7 @@ fi
 
 if [ ! -f "$JSON_SUBDIR/atvec_rafd_left_to_right.json" ]; then
     $PLATCMD atvec \
-      --avg-diff "$JSON_SUBDIR/rafd_left_vectors.json","$JSON_SUBDIR/rafd_right_vectors.json" \
+      --svm-diff "$JSON_SUBDIR/rafd_left_vectors.json","$JSON_SUBDIR/rafd_right_vectors.json" \
       --outfile "$JSON_SUBDIR/atvec_rafd_left_to_right.json"
 
     sample_vector "$JSON_SUBDIR/atvec_rafd_left_to_right.json" "0" "rafd_left_to_right"
