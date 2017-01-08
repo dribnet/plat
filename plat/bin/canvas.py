@@ -122,44 +122,24 @@ class Canvas:
     def check_bounds(self, cx, cy, border):
         if not self.do_check_bounds:
             return True
-        if (cx < self.canvas_xmin + border) or (cy < self.canvas_ymin + border) or (cx > self.canvas_xmax - border) or (cy > self.canvas_ymax - border):
+        if (cx < self.canvas_xmin) or (cy < self.canvas_ymin) or (cx > self.canvas_xmax - border) or (cy > self.canvas_ymax - border):
             return False
         return True
 
-    def place_image(self, im, x, y, additive=False, scale=None):
-        square = im
-        cx, cy = self.map_to_canvas(x, y)
-        if scale is 1:
-            border = self.gsize
-            slices = [
-                slice(0, 4),
-                slice(cy-border, cy+border),
-                slice(cx-border, cx+border)
-            ]
-            out_stack = np.dstack(im)
-            out_stack = (255 * out_stack).astype(np.uint8)
-            rawim = imresize(out_stack, 200)
-            s_im = np.asarray([rawim[:,:,0]/255.0, rawim[:,:,1]/255.0, rawim[:,:,2]/255.0])
-        elif scale is -1:
-            border = self.gsize4
-            slices = [
-                slice(0, 4),
-                slice(cy-border, cy+border),
-                slice(cx-border, cx+border)
-            ]
-            out_stack = np.dstack(im)
-            out_stack = (255 * out_stack).astype(np.uint8)
-            rawim = imresize(out_stack, 50)
-            s_im = np.asarray([rawim[:,:,0]/255.0, rawim[:,:,1]/255.0, rawim[:,:,2]/255.0])
-        else:
-            border = self.gsize2
-            slices = [
-                slice(0, 4),
-                slice(cy-border, cy+border),
-                slice(cx-border, cx+border)
-            ]
-            s_im = im
-        if not self.check_bounds(cx, cy, border):
+    def place_image(self, im, x, y, additive=False, scale=1.0):
+        print("place_image {} at {}, {} with scale {}".format(im.shape, x, y, scale))
+        border = int(scale)
+        slices = [
+            slice(0, 4),
+            slice(y, y+border),
+            slice(x, x+border)
+        ]
+        out_stack = np.dstack(im)
+        out_stack = (255 * out_stack).astype(np.uint8)
+        rawim = imresize(out_stack, (border, border))
+        s_im = np.asarray([rawim[:,:,0]/255.0, rawim[:,:,1]/255.0, rawim[:,:,2]/255.0])
+
+        if not self.check_bounds(x, y, border):
             return
         if additive:
             self.pixels[slices] = additive_composite(s_im, self.mask, self.pixels[slices])
@@ -252,6 +232,8 @@ def canvas(parser, context, args):
                         help="radius for computed mask")
     parser.add_argument('--layout', dest='layout', default=None,
                         help="layout json file")
+    parser.add_argument('--layout-scale', dest='layout_scale', default=1, type=int,
+                        help="Scale layout")
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=100,
                         help="number of images to decode at once")
     parser.add_argument('--passthrough', dest='passthrough', default=False, action='store_true',
@@ -308,21 +290,23 @@ def canvas(parser, context, args):
         with open(args.layout) as json_file:
             layout_data = json.load(json_file)
         xy = np.array(layout_data["xy"])
+        grid_size = layout_data["size"]
         roots = layout_data["r"]
         if "s" in layout_data:
             s = layout_data["s"]
         else:
             s = None
         for i, pair in enumerate(xy):
-            x = pair[0] * canvas.xmax
-            y = pair[1] * canvas.ymax
-            a = pair[0]
-            b = pair[1]
+            x = pair[0] * canvas.canvas_xmax / grid_size[0]
+            y = pair[1] * canvas.canvas_ymax / grid_size[1]
+            a = pair[0] / float(grid_size[0])
+            b = pair[1] / float(grid_size[1])
             r = roots[i]
             if s is None:
-                scale = None
+                scale = args.layout_scale
             else:
-                scale = s[i]
+                scale = s[i] * args.layout_scale
+            print("Placing {} at {}, {} because {},{} and {}, {}".format(scale, x, y, canvas.canvas_xmax, canvas.canvas_ymax, grid_size[0], grid_size[1]))
             if args.passthrough:
                 output_image = anchor_images[r]
                 canvas.place_image(output_image, x, y, args.additive, scale=scale)
@@ -333,6 +317,7 @@ def canvas(parser, context, args):
                     z = apply_anchor_offsets(anchors[r], anchor_offsets, a, b, args.anchor_offset_a, args.anchor_offset_b)
                 else:
                     z = anchors[r]
+                print("Storing {},{} with {}".format(x, y, len(z)))
                 workq.append({
                         "z": z,
                         "x": x,
@@ -374,7 +359,7 @@ def canvas(parser, context, args):
                             "z": z,
                             "x": x,
                             "y": y,
-                            "s": 0
+                            "s": 1.0
                         })
 
     while(len(workq) > 0):
@@ -383,7 +368,9 @@ def canvas(parser, context, args):
         latents = [e["z"] for e in curq]
         images = dmodel.sample_at(np.array(latents))
         for i in range(len(curq)):
+            print("Placing {},{} with {}".format(curq[i]["x"], curq[i]["y"], len(latents)))
             canvas.place_image(images[i], curq[i]["x"], curq[i]["y"], args.additive, scale=curq[i]["s"])
+            print("Placed")
 
     template_dict = {}
     template_dict["SIZE"] = args.image_size
