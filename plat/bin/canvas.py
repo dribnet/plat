@@ -8,6 +8,7 @@ import random
 import sys
 import json
 from scipy.misc import imread, imsave, imresize
+import os
 
 from plat.utils import anchors_from_image, get_json_vectors, offset_from_string
 from plat.canvas_layout import create_mine_canvas
@@ -127,7 +128,7 @@ class Canvas:
         return True
 
     def place_image(self, im, x, y, additive=False, scale=1.0):
-        print("place_image {} at {}, {} with scale {}".format(im.shape, x, y, scale))
+        # print("place_image {} at {}, {} with scale {}".format(im.shape, x, y, scale))
         border = int(scale)
         slices = [
             slice(0, 4),
@@ -248,6 +249,7 @@ def canvas(parser, context, args):
                         help="size of (offset) images")
     args = parser.parse_args(args)
 
+    template_dict = {}
     if args.seed:
         np.random.seed(args.seed)
         random.seed(args.seed)
@@ -257,6 +259,8 @@ def canvas(parser, context, args):
         _, _, anchor_images = anchors_from_image(args.anchor_image, image_size=(args.image_size, args.image_size))
     elif args.anchor_mine is not None:
         _, _, anchor_images = anchors_from_image(args.anchor_mine, image_size=(args.image_size, args.image_size))
+        basename = os.path.basename(args.anchor_mine)
+        template_dict["BASENAME"] = os.path.splitext(basename)[0]
 
     anchors = None
     if not args.passthrough:
@@ -299,14 +303,14 @@ def canvas(parser, context, args):
         for i, pair in enumerate(xy):
             x = pair[0] * canvas.canvas_xmax / grid_size[0]
             y = pair[1] * canvas.canvas_ymax / grid_size[1]
-            a = pair[0] / float(grid_size[0])
-            b = pair[1] / float(grid_size[1])
+            a = (pair[0] + 0.5 * s[i]) / float(grid_size[0])
+            b = (pair[1] + 0.5 * s[i]) / float(grid_size[1])
             r = roots[i]
             if s is None:
                 scale = args.layout_scale
             else:
                 scale = s[i] * args.layout_scale
-            print("Placing {} at {}, {} because {},{} and {}, {}".format(scale, x, y, canvas.canvas_xmax, canvas.canvas_ymax, grid_size[0], grid_size[1]))
+            # print("Placing {} at {}, {} because {},{} and {}, {}".format(scale, x, y, canvas.canvas_xmax, canvas.canvas_ymax, grid_size[0], grid_size[1]))
             if args.passthrough:
                 output_image = anchor_images[r]
                 canvas.place_image(output_image, x, y, args.additive, scale=scale)
@@ -317,7 +321,7 @@ def canvas(parser, context, args):
                     z = apply_anchor_offsets(anchors[r], anchor_offsets, a, b, args.anchor_offset_a, args.anchor_offset_b)
                 else:
                     z = anchors[r]
-                print("Storing {},{} with {}".format(x, y, len(z)))
+                # print("Storing {},{} with {}".format(x, y, len(z)))
                 workq.append({
                         "z": z,
                         "x": x,
@@ -368,11 +372,10 @@ def canvas(parser, context, args):
         latents = [e["z"] for e in curq]
         images = dmodel.sample_at(np.array(latents))
         for i in range(len(curq)):
-            print("Placing {},{} with {}".format(curq[i]["x"], curq[i]["y"], len(latents)))
+            # print("Placing {},{} with {}".format(curq[i]["x"], curq[i]["y"], len(latents)))
             canvas.place_image(images[i], curq[i]["x"], curq[i]["y"], args.additive, scale=curq[i]["s"])
-            print("Placed")
+            # print("Placed")
 
-    template_dict = {}
     template_dict["SIZE"] = args.image_size
     outfile = plat.sampling.emit_filename(args.save_path, template_dict, args);
     canvas.save(outfile)
