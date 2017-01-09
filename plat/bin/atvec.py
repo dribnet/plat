@@ -440,7 +440,7 @@ def atvec(parser, context, args):
         sys.exit(0)
 
     if args.svm_diff:
-        vecs1, vecs2 = args.avg_diff.split(",")
+        vecs1, vecs2 = args.svm_diff.split(",")
         encoded1 = json_list_to_array(vecs1)
         encoded2 = json_list_to_array(vecs2)
         print("Taking the svm difference between {} and {} vectors".format(len(encoded1), len(encoded2)))
@@ -450,10 +450,10 @@ def atvec(parser, context, args):
         y_arr = []
         for l in range(len(encoded1)):
             X_arr.append(encoded1[l])
-            y_arr.append(True)
+            y_arr.append(False)
         for l in range(len(encoded2)):
             X_arr.append(encoded2[l])
-            y_arr.append(False)
+            y_arr.append(True)
         X = np.array(X_arr)
         y = np.array(y_arr)
         # svc = svm.LinearSVC(C=C, class_weight="balanced").fit(X, y)
