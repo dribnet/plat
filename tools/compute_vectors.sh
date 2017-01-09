@@ -152,7 +152,7 @@ if [ ! -f "$JSON_SUBDIR/atvecs_all.json" ]; then
 
     atvec_thresh "$JSON_SUBDIR/atvecs_all_mean.json" "$JSON_SUBDIR/atvecs_all_mean_thresholds.json"
     for index in "${!celeba_attribs[@]}"; do
-        atvec_roc     "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_"${celeba_attribs[$index]} "$JSON_SUBDIR/atvecs_all_mean_thresholds.json"
+        atvec_roc     "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_mean_"${celeba_attribs[$index]} "$JSON_SUBDIR/atvecs_all_mean_thresholds.json"
     done
     for index in "${!celeba_attribs[@]}"; do
         sample_vector "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_mean_"${celeba_attribs[$index]}
@@ -190,7 +190,7 @@ if [ ! -f "$JSON_SUBDIR/unblurred_train_vectors_10k.json" ]; then
     # do train blur/unblur vectors
     $PLATCMD sample \
       $MODEL \
-      --anchor-glob '/develop/data/celeba/dlib_aligned_'$IMAGE_SIZE'/00????.png' \
+      --anchor-glob '/develop/data/celeba/dlib2/aligned/'$IMAGE_SIZE'/0[0-2]????.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
       --outfile "$JSON_SUBDIR/unblurred_train_vectors_10k.json"
@@ -199,7 +199,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/blurred1_train_vectors_10k.json" ]; then
     $PLATCMD sample \
       $MODEL \
-      --anchor-glob '/develop/data/celeba/dlib_aligned_'$IMAGE_SIZE'_blur1/00????.png' \
+      --anchor-glob '/develop/data/celeba/dlib2/aligned_blur1/'$IMAGE_SIZE'/0?????.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
       --outfile "$JSON_SUBDIR/blurred1_train_vectors_10k.json"
@@ -208,7 +208,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/blurred2_train_vectors_10k.json" ]; then
     $PLATCMD sample \
       $MODEL \
-      --anchor-glob '/develop/data/celeba/dlib_aligned_'$IMAGE_SIZE'_blur2/00????.png' \
+      --anchor-glob '/develop/data/celeba/dlib2/aligned_blur2/'$IMAGE_SIZE'/0?????.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
       --outfile "$JSON_SUBDIR/blurred2_train_vectors_10k.json"
@@ -222,7 +222,7 @@ if [ ! -f "$JSON_SUBDIR/atvec_blur1.json" ]; then
     sample_vector "$JSON_SUBDIR/atvec_blur1.json" "0" "blur1"
 
     $PLATCMD atvec \
-      --avg-diff "$JSON_SUBDIR/unblurred_train_vectors_10k.json,$JSON_SUBDIR/blurred1_mean_train_vectors_10k.json" \
+      --avg-diff "$JSON_SUBDIR/unblurred_train_vectors_10k.json,$JSON_SUBDIR/blurred1_train_vectors_10k.json" \
       --outfile "$JSON_SUBDIR/atvec_blur1_mean.json"
 
     sample_vector "$JSON_SUBDIR/atvec_blur1_mean.json" "0" "blur1_mean"
@@ -239,7 +239,7 @@ if [ ! -f "$JSON_SUBDIR/atvec_blur2.json" ]; then
       --avg-diff "$JSON_SUBDIR/unblurred_train_vectors_10k.json,$JSON_SUBDIR/blurred2_train_vectors_10k.json" \
       --outfile "$JSON_SUBDIR/atvec_blur2_mean.json"
 
-    sample_vector "$JSON_SUBDIR/atvec_blur2.json" "0" "blur2"
+    sample_vector "$JSON_SUBDIR/atvec_blur2_mean.json" "0" "blur2_mean"
 fi
 
 if [ ! -f "$JSON_SUBDIR/rafd_neutral_vectors.json" ]; then
@@ -265,7 +265,7 @@ for EMOTION in "angry" "contemptuous" "disgusted" "fearful" "happy" "sad" "surpr
 
     if [ ! -f "$JSON_SUBDIR/atvec_rafd_"$EMOTION".json" ]; then
         $PLATCMD atvec \
-          --avg-diff "$JSON_SUBDIR/rafd_neutral_vectors.json","$JSON_SUBDIR/rafd_"$EMOTION"_vectors.json" \
+          --svm-diff "$JSON_SUBDIR/rafd_neutral_vectors.json","$JSON_SUBDIR/rafd_"$EMOTION"_vectors.json" \
           --outfile "$JSON_SUBDIR/atvec_rafd_"$EMOTION".json"
 
         sample_vector "$JSON_SUBDIR/atvec_rafd_"$EMOTION".json" "0" "rafd_"$EMOTION
@@ -274,7 +274,7 @@ for EMOTION in "angry" "contemptuous" "disgusted" "fearful" "happy" "sad" "surpr
           --avg-diff "$JSON_SUBDIR/rafd_neutral_vectors.json","$JSON_SUBDIR/rafd_"$EMOTION"_vectors.json" \
           --outfile "$JSON_SUBDIR/atvec_rafd_mean_"$EMOTION".json"
 
-        sample_vector "$JSON_SUBDIR/atvec_rafd_mean_"$EMOTION".json" "0" "rafd_"$EMOTION
+        sample_vector "$JSON_SUBDIR/atvec_rafd_mean_"$EMOTION".json" "0" "rafd_mean_"$EMOTION
     fi
 done
 
