@@ -29,30 +29,26 @@ def random_layout(w, h, limits):
     xy = []
     s = []
     lookup = np.zeros((h, w))
+    pairs = [[x, y] for x in range(w) for y in range(h)]
+    num_pairs = len(pairs)
     for i in range(len(limits)):
-        num_spaces = 1 + len(limits) - i
-        for n in range(limits[i]):
-            x = np.random.random_integers(0, w - num_spaces)
-            y = np.random.random_integers(0, h - num_spaces)
-            lookup_slice = [slice(y, y+num_spaces), slice(x, x+num_spaces)]
-            ls = lookup[lookup_slice]
-            if np.max(ls) == 0:
-                lookup[lookup_slice] = 1
-                p.append(-1)
-                r.append(0)
-                xy.append([x, y])
-                s.append(num_spaces)
-
-    for x in range(w):
-        for y in range(h):
-            lookup_slice = [slice(y, y+1), slice(x, x+1)]
-            ls = lookup[lookup_slice]
-            if np.max(ls) == 0:
-                lookup[lookup_slice] = 1
-                p.append(-1)
-                r.append(0)
-                xy.append([x, y])
-                s.append(1)
+        num_spaces = len(limits) - i
+        shuffle = np.random.permutation(pairs)
+        num_found = 0
+        cur_pair_index = 0
+        while cur_pair_index < num_pairs and num_found < limits[i]:
+            x, y = shuffle[cur_pair_index]
+            cur_pair_index = cur_pair_index + 1
+            if x <= w - num_spaces and y <= h - num_spaces:
+                lookup_slice = [slice(y, y+num_spaces), slice(x, x+num_spaces)]
+                ls = lookup[lookup_slice]
+                if np.max(ls) == 0:
+                    num_found = num_found + 1
+                    lookup[lookup_slice] = 1
+                    p.append(-1)
+                    r.append(0)
+                    xy.append([x, y])
+                    s.append(num_spaces)
     return {
         "size": [w, h],
         "p": p,
