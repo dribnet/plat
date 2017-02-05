@@ -247,12 +247,23 @@ def canvas(parser, context, args):
                         help="which indices to combine for offset b")
     parser.add_argument("--image-size", dest='image_size', type=int, default=64,
                         help="size of (offset) images")
+    parser.add_argument('--global-offset', dest='global_offset', default=None,
+                        help="use json file as source of global offsets")
+    parser.add_argument('--global-indices', dest='global_indices', default=None, type=str,
+                        help="offset indices to apply globally")
+    parser.add_argument('--global-scale', dest='global_scale', default=1.0, type=float,
+                        help="scaling factor for global offset")
     args = parser.parse_args(args)
 
     template_dict = {}
     if args.seed:
         np.random.seed(args.seed)
         random.seed(args.seed)
+
+    global_offset = None
+    if args.global_offset is not None:
+        offsets = get_json_vectors(args.global_offset)
+        global_offset = plat.sampling.get_global_offset(offsets, args.global_indices, args.global_scale)
 
     anchor_images = None
     if args.anchor_image is not None:
@@ -321,6 +332,9 @@ def canvas(parser, context, args):
                     z = apply_anchor_offsets(anchors[r], anchor_offsets, a, b, args.anchor_offset_a, args.anchor_offset_b)
                 else:
                     z = anchors[r]
+
+                if global_offset is not None:
+                    z = z + global_offset
                 # print("Storing {},{} with {}".format(x, y, len(z)))
                 workq.append({
                         "z": z,
@@ -359,6 +373,10 @@ def canvas(parser, context, args):
                         z = apply_anchor_offsets(anchors[0], anchor_offsets, a, b, args.anchor_offset_a, args.anchor_offset_b)
                     else:
                         z = create_mine_canvas(args.rows, args.cols, b, a, anchors)
+
+                    if global_offset is not None:
+                        z = z + global_offset
+
                     workq.append({
                             "z": z,
                             "x": x,
