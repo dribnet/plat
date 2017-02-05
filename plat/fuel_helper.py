@@ -2,6 +2,7 @@
 
 """Routines for accessing fuel datasets."""
 import numpy as np
+import uuid
 from fuel.datasets.hdf5 import H5PYDataset
 from fuel.utils import find_in_data_path
 from fuel.transformers.defaults import uint8_pixels_to_floatX
@@ -140,6 +141,106 @@ class StretchLabels(AgnosticSourcewiseTransformer):
         else:
             return source
 
+class RandomLabelOptionalSpreader(AgnosticSourcewiseTransformer):
+    """Used to stretch a set of vectors making labels optional.
+
+    Input is is clipped to a dim-64 vector, output is dim-128 vector.
+
+    20% of time vector passes unchanged, but with 1s for top 64.
+    20% of time vector passes completely zeroed out.
+    10% of time vector passes with 1 label enabled, others zeroed.
+    50% of time vector passes through with 2-64 labels enabled, others zeroed
+
+    Parameters
+    ----------
+    config : []
+        Placeholder to allow future configuration of behavior.
+    """
+    def __init__(self, data_stream, config=[20, 20, 10, 50], **kwargs):
+        super(RandomLabelOptionalSpreader, self).__init__(
+             data_stream=data_stream,
+             produces_examples=data_stream.produces_examples,
+             **kwargs)
+        self.config = config
+
+    def transform_any_source(self, source, _):
+        if not len(source > 0):
+            return source
+
+        iters, dim = source.shape
+
+        orig_source = source
+        # first pad to 64 with 0s (if not already)
+        npad = 64 - dim
+        if npad > 0:
+            source = [np.pad(a, pad_width=(0, npad), mode='constant',
+                       constant_values=0) for a in source]
+        # now pad to 128 with 1s
+        npad = 64
+        source = [np.pad(a, pad_width=(0, npad), mode='constant',
+                   constant_values=1) for a in source]
+
+        fixed = np.zeros((iters, 128), dtype=np.uint8)
+        # now decimate probalisticly
+        for i in range(iters):
+            choice = np.random.uniform(0,100)
+            if choice < 20:
+                # if i == 0:
+                #     print("KEEP")
+                fixed[i] = source[i]
+
+            elif choice < 40:
+                # if i == 0:
+                #     print("Zero")
+                # leave at 0
+                pass
+
+            else:
+                if choice < 50:
+                    mask = np.zeros(shape=(64,), dtype=np.uint8)
+                    which = np.random.randint(low=0,high=64)
+                    # if i == 0:
+                    #     print("mask {}".format(which))
+                    mask[which] = 1
+                else:
+                    mask = np.random.randint(low=0, high=2, size=(64,), dtype=np.uint8)
+                    # if i == 0:
+                    #     print("multimask")
+                fixed[i][0:64] = source[i][0:64] * mask
+                fixed[i][64:128] = mask
+        # print("COMPARE")
+        # print(orig_source[0])
+        # print(fixed[0])
+        return np.array(fixed)
+
+class UUIDStretch(AgnosticSourcewiseTransformer):
+    """Append 128 dimensional uuid to all labels.
+    """
+    def __init__(self, data_stream, uuid_str, **kwargs):
+        super(UUIDStretch, self).__init__(
+             data_stream=data_stream,
+             produces_examples=data_stream.produces_examples,
+             **kwargs)
+        self.uuid_str = uuid_str
+        self.uuid = uuid.UUID(self.uuid_str)
+        uuid_int = self.uuid.int
+        encoded = []
+        high_mask = 0x80000000000000000000000000000000
+        for n in range(128):
+            bit = uuid_int & high_mask
+            uuid_int = uuid_int << 1
+            if bit != 0:
+                encoded.append(1)
+            else:
+                encoded.append(0)
+        self.uuid_pad = np.array(encoded, dtype=np.uint8)
+        # print("UUID PAD IS {}".format(self.uuid_pad))
+
+    def transform_any_source(self, source, _):
+        output = [np.concatenate((a, self.uuid_pad)) for a in source]
+        # print("UUID: {}".format(output[0]))
+        return output
+
 #copied from discgen.utils
 def create_streams(train_set, valid_set, test_set, training_batch_size,
                    monitoring_batch_size):
@@ -188,7 +289,8 @@ def create_streams(train_set, valid_set, test_set, training_batch_size,
 
 def create_custom_streams(filename, training_batch_size, monitoring_batch_size,
                           include_targets=False, color_convert=False,
-                          allowed=None, stretch=False,
+                          allowed=None, stretch=False, random_spread=False,
+                          uuid_str=None,
                           split_names=['train', 'valid', 'test']):
     """Creates data streams from fuel hdf5 file.
 
@@ -247,6 +349,18 @@ def create_custom_streams(filename, training_batch_size, monitoring_batch_size,
     if allowed:
         results = tuple(map(
                     lambda s: Scrubber(s, allowed=allowed,
+                                       which_sources=('targets',)),
+                    results))
+
+    if random_spread:
+        results = tuple(map(
+                    lambda s: RandomLabelOptionalSpreader(s,
+                                       which_sources=('targets',)),
+                    results))
+
+    if uuid_str is not None:
+        results = tuple(map(
+                    lambda s: UUIDStretch(s, uuid_str=uuid_str,
                                        which_sources=('targets',)),
                     results))
 
