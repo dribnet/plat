@@ -5,7 +5,7 @@ import numpy as np
 from fuel.datasets.hdf5 import H5PYDataset
 from fuel.utils import find_in_data_path
 from fuel.transformers.defaults import uint8_pixels_to_floatX
-from fuel.schemes import SequentialExampleScheme, ShuffledScheme
+from fuel.schemes import SequentialExampleScheme, ShuffledScheme, SequentialScheme
 from fuel.streams import DataStream
 from fuel.transformers import AgnosticSourcewiseTransformer
 
@@ -176,11 +176,11 @@ def create_streams(train_set, valid_set, test_set, training_batch_size,
             train_set.num_examples, monitoring_batch_size))
     valid_monitor_stream = DataStream.default_stream(
         dataset=valid_set,
-        iteration_scheme=ShuffledScheme(
+        iteration_scheme=SequentialScheme(
             valid_set.num_examples, monitoring_batch_size))
     test_monitor_stream = DataStream.default_stream(
         dataset=test_set,
-        iteration_scheme=ShuffledScheme(
+        iteration_scheme=SequentialScheme(
             test_set.num_examples, monitoring_batch_size))
 
     return (main_loop_stream, train_monitor_stream, valid_monitor_stream,

@@ -44,6 +44,9 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
             files = files[:args.numanchors]
         anchor_images = anchors_from_filelist(files)
         print("Read {} images from {} files".format(len(anchor_images), len(files)))
+        if len(anchor_images) == 0:
+            print("No images, cannot contine")
+            sys.exit(0)
 
     if cur_anchor_image is not None:
         _, _, anchor_images = anchors_from_image(cur_anchor_image, image_size=(args.image_size, args.image_size))
@@ -57,7 +60,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
     if args.passthrough:
         # determine final filename string
         image_size = anchor_images[0].shape[1]
-        save_path = plat.sampling.emit_filename(cur_save_path, args, image_size, None);
+        save_path = plat.sampling.emit_filename(cur_save_path, {}, args);
         print("Preparing image file {}".format(save_path))
         img = grid2img(anchor_images, args.rows, args.cols, not args.tight)
         img.save(save_path)
