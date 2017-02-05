@@ -139,14 +139,17 @@ def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, sa
 
     # each sample is 3xsizexsize
     template_dict["SIZE"] = one_sample.shape[1]
-    final_save_path = emit_filename(save_path, template_dict, args);
+    final_save_path = emit_filename(save_path, template_dict, args)
+    after_last_slash = final_save_path.rfind("/") + 1
+    outfile_temp = final_save_path[:after_last_slash] + '_' + final_save_path[after_last_slash:]
     print("Saving image file {}".format(final_save_path))
     dirname = os.path.dirname(final_save_path)
     if dirname != '' and not os.path.exists(dirname):
         os.makedirs(dirname)
     img = grid2img(samples, rows, cols, not tight)
-    img.save(final_save_path)
-
+    img.save(outfile_temp)
+    os.rename(outfile_temp, final_save_path)
+    os.system("touch {}".format(final_save_path))
 
 def surround_anchors(rows, cols, anchors, rand_anchors):
     newanchors = []
