@@ -184,7 +184,7 @@ class RandomLabelOptionalSpreader(AgnosticSourcewiseTransformer):
         # now decimate probalisticly
         for i in range(iters):
             choice = np.random.uniform(0,100)
-            if choice < 20:
+            if choice < self.config[0]:
                 # if i == 0:
                 #     print("KEEP")
                 fixed[i] = source[i]
@@ -213,6 +213,28 @@ class RandomLabelOptionalSpreader(AgnosticSourcewiseTransformer):
         # print(fixed[0])
         return np.array(fixed)
 
+def uuid_to_vector(uuid_str):
+    u = uuid.UUID(uuid_str)
+    uuid_int = u.int
+    encoded = []
+    high_mask = 0x80000000000000000000000000000000
+    for n in range(128):
+        bit = uuid_int & high_mask
+        uuid_int = uuid_int << 1
+        if bit != 0:
+            encoded.append(1)
+        else:
+            encoded.append(0)
+    return np.array(encoded, dtype=np.uint8)
+
+def uuid_pad_vector(v, uuid_vector, zero_vector):
+    all_zeros = not v.any()
+    if all_zeros:
+        pad = zero_vector
+    else:
+        pad = uuid_vector
+    return np.concatenate((v, pad))
+
 class UUIDStretch(AgnosticSourcewiseTransformer):
     """Append 128 dimensional uuid to all labels.
     """
@@ -221,23 +243,12 @@ class UUIDStretch(AgnosticSourcewiseTransformer):
              data_stream=data_stream,
              produces_examples=data_stream.produces_examples,
              **kwargs)
-        self.uuid_str = uuid_str
-        self.uuid = uuid.UUID(self.uuid_str)
-        uuid_int = self.uuid.int
-        encoded = []
-        high_mask = 0x80000000000000000000000000000000
-        for n in range(128):
-            bit = uuid_int & high_mask
-            uuid_int = uuid_int << 1
-            if bit != 0:
-                encoded.append(1)
-            else:
-                encoded.append(0)
-        self.uuid_pad = np.array(encoded, dtype=np.uint8)
-        # print("UUID PAD IS {}".format(self.uuid_pad))
+        self.uuid_pad = uuid_to_vector(uuid_str)
+        self.zero_pad = np.zeros((128,), dtype=np.uint8)
 
     def transform_any_source(self, source, _):
-        output = [np.concatenate((a, self.uuid_pad)) for a in source]
+        output = [uuid_pad_vector(a, self.uuid_pad, self.zero_pad)
+            for a in source]
         # print("UUID: {}".format(output[0]))
         return output
 
