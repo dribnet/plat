@@ -34,6 +34,25 @@ def get_averages(attribs, encoded, num_encoded_attributes):
     without_attr = map(np.array, without_attr)
     return with_attr, without_attr
 
+def get_class_averages(attribs, encoded, num_classes):
+    with_attr = [[] for x in xrange(num_classes)]
+    without_attr = [[] for x in xrange(num_classes)]
+    for i in range(len(encoded)):
+        if i % 10000 == 0:
+            print("iteration {}".format(i))
+        for m in range(num_classes):
+            if attribs[i][0] == m:
+                with_attr[m].append(encoded[i])
+            else:
+                without_attr[m].append(encoded[i])
+
+    print("With: {}".format(map(len, with_attr)))
+    print("Without: {}".format(map(len, without_attr)))
+
+    with_attr = map(np.array, with_attr)
+    without_attr = map(np.array, without_attr)
+    return with_attr, without_attr
+
 def get_balanced_averages2(attribs, encoded, a1, a2):
     just_a1 = []
     just_a2 = []
@@ -249,7 +268,7 @@ def compute_accuracy(y, score_list, threshold):
     return metrics.accuracy_score(y, y_pred)
 
 # binary search to find optimal threshold to maximize accuracy
-def do_thresh(atvecs, encoded, attribs, outfile):
+def do_thresh(atvecs, encoded, attribs, outfile, isclass=False):
     if outfile is None:
         outfile = "thresh.json"
     l = min(len(encoded), len(attribs))
@@ -263,13 +282,20 @@ def do_thresh(atvecs, encoded, attribs, outfile):
         score_true_list = []
         score_false_list = []
         for i in range(l):
-            y_list.append(attribs[i][0][j])
             score = np.dot(at_vec, encoded[i])
             score_list.append(score)
-            if attribs[i][0][j] == 1:
-                score_true_list.append(score)
+            if isclass:
+                y_list.append(attribs[i][0])
+                if attribs[i][0] == j:
+                    score_true_list.append(score)
+                else:
+                    score_false_list.append(score)
             else:
-                score_false_list.append(score)
+                y_list.append(attribs[i][0][j])
+                if attribs[i][0][j] == 1:
+                    score_true_list.append(score)
+                else:
+                    score_false_list.append(score)
         y = np.array(y_list)
         sorted_scores = sorted(score_list)
         # here is the core loop
@@ -305,7 +331,7 @@ def do_thresh(atvecs, encoded, attribs, outfile):
     save_json_attribs(thresh_array, outfile)
 
 
-def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile):
+def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile, isclass):
     if outfile is None:
         outfile = "roc"
     if threshold is None:
@@ -320,17 +346,27 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile):
     score_false_list = []
     print(attribs.shape)
     for i in range(l):
-        y_list.append(attribs[i][0][attribs_index])
         score = np.dot(chosen_vector, encoded[i])
         score_list.append(score)
         if score < threshold:
             y_pred_list.append(0)
         else:
             y_pred_list.append(1)
-        if attribs[i][0][attribs_index] == 1:
-            score_true_list.append(score)
+        if isclass:
+            if attribs[i][0] == attribs_index:
+                y_list.append(1)
+            else:
+                y_list.append(0)
+            if attribs[i][0] == attribs_index:
+                score_true_list.append(score)
+            else:
+                score_false_list.append(score)
         else:
-            score_false_list.append(score)
+            y_list.append(attribs[i][0][attribs_index])
+            if attribs[i][0][attribs_index] == 1:
+                score_true_list.append(score)
+            else:
+                score_false_list.append(score)
 
     y = np.array(y_list)
     scores = np.array(score_list)
@@ -394,6 +430,8 @@ def atvec(parser, context, args):
                         help="Which split to use from the dataset (train/nontrain/valid/test/any).")
     parser.add_argument("--num-attribs", dest='num_attribs', type=int, default=40,
                         help="Number of attributes (labes)")
+    parser.add_argument("--num-classes", dest='num_classes', type=int, default=None,
+                        help="For multiclass, number of classes (assumed 0 .. n-1)")
     parser.add_argument("--z-dim", dest='z_dim', type=int, default=100,
                         help="z dimension of vectors")
     parser.add_argument("--encoded-vectors", type=str, default=None,
@@ -495,12 +533,12 @@ def atvec(parser, context, args):
             threshold = atvec_thresholds[0][int(args.attribute_indices)]
         else:
             threshold = None
-        do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices), threshold, args.outfile)
+        do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices), threshold, args.outfile, isclass=(args.num_classes is not None))
         sys.exit(0)
 
     if args.thresh:
         atvecs = get_json_vectors(args.attribute_vectors)
-        do_thresh(atvecs, encoded, attribs, args.outfile)
+        do_thresh(atvecs, encoded, attribs, args.outfile, isclass=(args.num_classes is not None))
         sys.exit(0)
 
     if(args.balanced2):
@@ -511,9 +549,15 @@ def atvec(parser, context, args):
         indexes = map(int, args.balanced.split(","))
         with_attr, without_attr = get_balanced_averages(attribs, encoded, indexes);
         num_attribs = len(indexes)
-    else:
+    elif args.num_classes is not None:
+        with_attr, without_attr = get_class_averages(attribs, encoded, args.num_classes);
+        num_attribs = args.num_classes
+    elif args.num_attribs is not None:
         with_attr, without_attr = get_averages(attribs, encoded, args.num_attribs);
         num_attribs = args.num_attribs
+    else:
+        print("I think we need either num_classes or num_attribs or something")
+        sys.exit(0);
 
     if args.svm:
         atvects = averages_to_svm_attribute_vectors(with_attr, without_attr, num_attribs, z_dim)
