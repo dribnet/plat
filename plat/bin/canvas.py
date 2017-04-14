@@ -32,6 +32,11 @@ def alpha_composite(src, src_mask, dst):
     The algorithm comes from http://en.wikipedia.org/wiki/Alpha_compositing
     '''
     out = np.empty(dst.shape, dtype = 'float')
+
+    src_shape = src.shape
+    if src_shape[1] == 1 and src_shape[2] == 1:
+        return out
+
     alpha = np.index_exp[3:, :, :]
     rgb = np.index_exp[:3, :, :]
     epsilon = 0.001
@@ -114,6 +119,17 @@ class Canvas:
         new_y = int((y - self.ymin) * self.yspread_ratio + self.canvas_ymin)
         return new_x, new_y
 
+    def set_background(self, fname):
+        rawim = imread(fname);
+        h, w, c = rawim.shape
+        if h > self.canvas_ymax:
+            h = self.canvas_ymax
+        if w > self.canvas_xmax:
+            w = self.canvas_xmax
+        s_im = np.asarray([rawim[:,:,0]/255.0, rawim[:,:,1]/255.0, rawim[:,:,2]/255.0])            
+        self.pixels[0:3, 0:h, 0:w] = s_im[:,0:h,0:w]
+        self.pixels[3, 0:h, 0:w] = 1
+
     def place_square(self, x, y, s):
         square = np.zeros((channels, self.gsize, self.gsize))
         square.fill(1)
@@ -127,18 +143,38 @@ class Canvas:
             return False
         return True
 
-    def place_image(self, im, x, y, additive=False, scale=1.0):
+    def get_anchor(self, x, y, im_size):
+        cx, cy = self.map_to_canvas(x, y)
+        im_size = int(im_size)
+        border = self.gsize2
+        anchor_im = self.pixels[0:3, cy-border:cy+border, cx-border:cx+border]
+        anchor = np.zeros([3, im_size, im_size])
+        tc, th, tw = anchor_im.shape
+        anchor[:, 0:th, 0:tw] = anchor_im
+        return anchor.astype('float32')
+
+    def place_image(self, im, x, y, additive=False, scale=None):
         # print("place_image {} at {}, {} with scale {}".format(im.shape, x, y, scale))
-        border = int(scale)
-        slices = [
-            slice(0, 4),
-            slice(y, y+border),
-            slice(x, x+border)
-        ]
-        out_stack = np.dstack(im)
-        out_stack = (255 * out_stack).astype(np.uint8)
-        rawim = imresize(out_stack, (border, border))
-        s_im = np.asarray([rawim[:,:,0]/255.0, rawim[:,:,1]/255.0, rawim[:,:,2]/255.0])
+        if scale is not None:
+            border = int(scale)
+            slices = [
+                slice(0, 4),
+                slice(y, y+border),
+                slice(x, x+border)
+            ]
+            out_stack = np.dstack(im)
+            out_stack = (255 * out_stack).astype(np.uint8)
+            rawim = imresize(out_stack, (border, border))
+            s_im = np.asarray([rawim[:,:,0]/255.0, rawim[:,:,1]/255.0, rawim[:,:,2]/255.0])
+        else:
+            cx, cy = self.map_to_canvas(x, y)
+            border = self.gsize2
+            slices = [
+                slice(0, 4),
+                slice(cy-border, cy+border),
+                slice(cx-border, cx+border)
+            ]
+            s_im = im
 
         if not self.check_bounds(x, y, border):
             return
@@ -211,10 +247,14 @@ def canvas(parser, context, args):
                         default=None, help="Optional random seed")
     parser.add_argument('--do-check-bounds', dest='do_check_bounds', default=False, action='store_true',
                         help="clip to drawing bounds")
+    parser.add_argument('--background-image', dest='background_image', default=None,
+                        help="use image initial background")
     parser.add_argument('--anchor-image', dest='anchor_image', default=None,
                         help="use image as source of anchors")
     parser.add_argument('--anchor-mine', dest='anchor_mine', default=None,
                         help="use image as single source of mine coordinates")    
+    parser.add_argument('--anchor-canvas', dest='anchor_canvas', default=False, action='store_true',
+                        help="anchor image from canvas")
     parser.add_argument('--random-mine', dest='random_mine', default=False, action='store_true',
                         help="use random sampling as source of mine coordinates")
     parser.add_argument('--additive', dest='additive', default=False, action='store_true',
@@ -297,6 +337,8 @@ def canvas(parser, context, args):
         anchor_offsets = get_json_vectors(args.anchor_offset)
 
     canvas = Canvas(args.width, args.height, args.xmin, args.xmax, args.ymin, args.ymax, args.mask_name, args.image_size, args.do_check_bounds)
+    if args.background_image is not None:
+        canvas.set_background(args.background_image)
     workq = []
 
     do_hex = True
@@ -366,10 +408,17 @@ def canvas(parser, context, args):
                 if not mask_layout[ypos][xpos] > 128:
                     pass
                 elif args.passthrough:
-                    output_image = anchor_images[0]
-                    canvas.place_image(output_image, x, y, args.additive)
+                    if args.anchor_canvas:
+                        cur_anchor_image = canvas.get_anchor(x, y, args.image_size)
+                    else:
+                        cur_anchor_image = anchor_images[0]
+                    canvas.place_image(cur_anchor_image, x, y, args.additive, None)
                 else:
-                    if len(anchors) == 1 or anchor_offsets is not None:
+                    if args.anchor_canvas:
+                        cur_anchor_image = canvas.get_anchor(x, y, args.image_size)
+                        zs = dmodel.encode_images([cur_anchor_image])
+                        z = zs[0]
+                    elif len(anchors) == 1 or anchor_offsets is not None:
                         z = apply_anchor_offsets(anchors[0], anchor_offsets, a, b, args.anchor_offset_a, args.anchor_offset_b)
                     else:
                         z = create_mine_canvas(args.rows, args.cols, b, a, anchors)
@@ -381,7 +430,7 @@ def canvas(parser, context, args):
                             "z": z,
                             "x": x,
                             "y": y,
-                            "s": 1.0
+                            "s": None
                         })
 
     while(len(workq) > 0):

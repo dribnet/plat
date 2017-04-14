@@ -190,7 +190,7 @@ if [ ! -f "$JSON_SUBDIR/unblurred_train_vectors_10k.json" ]; then
     # do train blur/unblur vectors
     $PLATCMD sample \
       $MODEL \
-      --anchor-glob '/develop/data/celeba/dlib2/aligned/'$IMAGE_SIZE'/0[0-2]????.png' \
+      --anchor-glob '/develop/data/celeba/dlib2/aligned/'$IMAGE_SIZE'/splits/train/0[0-2]????.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
       --outfile "$JSON_SUBDIR/unblurred_train_vectors_10k.json"
@@ -199,7 +199,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/blurred1_train_vectors_10k.json" ]; then
     $PLATCMD sample \
       $MODEL \
-      --anchor-glob '/develop/data/celeba/dlib2/aligned_blur1/'$IMAGE_SIZE'/0?????.png' \
+      --anchor-glob '/develop/data/celeba/dlib2/aligned_blur1/'$IMAGE_SIZE'/0[0-2]????.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
       --outfile "$JSON_SUBDIR/blurred1_train_vectors_10k.json"
@@ -208,7 +208,7 @@ fi
 if [ ! -f "$JSON_SUBDIR/blurred2_train_vectors_10k.json" ]; then
     $PLATCMD sample \
       $MODEL \
-      --anchor-glob '/develop/data/celeba/dlib2/aligned_blur2/'$IMAGE_SIZE'/0?????.png' \
+      --anchor-glob '/develop/data/celeba/dlib2/aligned_blur2/'$IMAGE_SIZE'/0[0-2]????.png' \
       --batch-size $BATCH_SIZE \
       --encoder \
       --outfile "$JSON_SUBDIR/blurred2_train_vectors_10k.json"
