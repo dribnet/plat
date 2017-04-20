@@ -213,6 +213,33 @@ class RandomLabelOptionalSpreader(AgnosticSourcewiseTransformer):
         # print(fixed[0])
         return np.array(fixed)
 
+class RandomLabelDropping(AgnosticSourcewiseTransformer):
+    """a label vector abcde is randomly replaced with either
+       0abcde or
+       100000
+    """
+    def __init__(self, data_stream, chance=50, **kwargs):
+        super(RandomLabelDropping, self).__init__(
+             data_stream=data_stream,
+             produces_examples=data_stream.produces_examples,
+             **kwargs)
+        self.chance = chance
+
+    def transform_any_source(self, source, _):
+        if not len(source > 0):
+            return source
+
+        iters, dim = source.shape
+        newdim = dim+1
+
+        choice = np.random.uniform(0,100)
+        if choice < self.chance:
+            source = np.zeros((iters, newdim), dtype=np.uint8)
+            source[:,0] = 1
+        else:
+            source = np.pad(source, pad_width=((0, 0), (1, 0)), mode='constant', constant_values=0)
+        return source
+
 def uuid_to_vector(uuid_str):
     u = uuid.UUID(uuid_str)
     uuid_int = u.int
@@ -300,7 +327,8 @@ def create_streams(train_set, valid_set, test_set, training_batch_size,
 
 def create_custom_streams(filename, training_batch_size, monitoring_batch_size,
                           include_targets=False, color_convert=False,
-                          allowed=None, stretch=False, random_spread=False,
+                          allowed=None, stretch=None, random_spread=False,
+                          random_label_dropping=False,
                           uuid_str=None,
                           split_names=['train', 'valid', 'test']):
     """Creates data streams from fuel hdf5 file.
@@ -350,10 +378,16 @@ def create_custom_streams(filename, training_batch_size, monitoring_batch_size,
                     lambda s: Colorize(s, which_sources=('features',)),
                     results))
 
-    # wrap labels in stretcher if requested
-    if stretch:
+    if random_label_dropping:
         results = tuple(map(
-                    lambda s: StretchLabels(s, which_sources=('targets',)),
+                    lambda s: RandomLabelDropping(s,
+                                       which_sources=('targets',)),
+                    results))
+
+    # wrap labels in stretcher if requested
+    if stretch is not None:
+        results = tuple(map(
+                    lambda s: StretchLabels(s, which_sources=('targets',), length=stretch),
                     results))
 
     # wrap labels in scrubber if not all labels are allowed
