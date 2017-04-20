@@ -213,13 +213,44 @@ class RandomLabelOptionalSpreader(AgnosticSourcewiseTransformer):
         # print(fixed[0])
         return np.array(fixed)
 
-class RandomLabelDropping(AgnosticSourcewiseTransformer):
+class RandomLabelStrip(AgnosticSourcewiseTransformer):
     """a label vector abcde is randomly replaced with either
        0abcde or
        100000
     """
     def __init__(self, data_stream, chance=50, **kwargs):
-        super(RandomLabelDropping, self).__init__(
+        super(RandomLabelStrip, self).__init__(
+             data_stream=data_stream,
+             produces_examples=data_stream.produces_examples,
+             **kwargs)
+        self.chance = chance
+
+    def transform_any_source(self, source, _):
+        if not len(source > 0):
+            return source
+
+        # orig_source0 = np.copy(source[0])
+        iters, dim = source.shape
+        newdim = dim+1
+
+        choice = np.random.uniform(0,100)
+        if choice < self.chance:
+            source = np.zeros((iters, newdim), dtype=np.uint8)
+            source[:,0] = 1
+        else:
+            source = np.pad(source, pad_width=((0, 0), (1, 0)), mode='constant', constant_values=0)
+        # print("COMPARE")
+        # print(orig_source0)
+        # print(source[0])
+        return source
+
+class AddLabelUncertainty(AgnosticSourcewiseTransformer):
+    """a label vector abcde is randomly replaced with either
+       0abcde or
+       100000
+    """
+    def __init__(self, data_stream, chance=50, **kwargs):
+        super(AddLabelUncertainty, self).__init__(
              data_stream=data_stream,
              produces_examples=data_stream.produces_examples,
              **kwargs)
@@ -230,15 +261,21 @@ class RandomLabelDropping(AgnosticSourcewiseTransformer):
             return source
 
         iters, dim = source.shape
-        newdim = dim+1
+        newdim = dim*2
 
-        choice = np.random.uniform(0,100)
-        if choice < self.chance:
-            source = np.zeros((iters, newdim), dtype=np.uint8)
-            source[:,0] = 1
-        else:
-            source = np.pad(source, pad_width=((0, 0), (1, 0)), mode='constant', constant_values=0)
-        return source
+        fixed = np.zeros((iters, newdim), dtype=np.uint8)
+        # start with random numbers 0-100
+        mask_nums = np.random.randint(low=0, high=100, size=(dim,), dtype=np.uint8)
+        # decide on the fields to be zeroed out (marked by 1)
+        mask = (mask_nums < self.chance).astype(int)
+        # multiply existing fields by the inverse (0 1 swapped)
+        fixed[:,:dim] = source * (1 - mask)
+        # store the same mask across the batch
+        fixed[:,dim:] = mask
+        # print("COMPARE")
+        # print(source[0])
+        # print(fixed[0])
+        return fixed
 
 def uuid_to_vector(uuid_str):
     u = uuid.UUID(uuid_str)
@@ -328,7 +365,7 @@ def create_streams(train_set, valid_set, test_set, training_batch_size,
 def create_custom_streams(filename, training_batch_size, monitoring_batch_size,
                           include_targets=False, color_convert=False,
                           allowed=None, stretch=None, random_spread=False,
-                          random_label_dropping=False,
+                          random_label_strip=False, add_label_uncertainty=False,
                           uuid_str=None,
                           split_names=['train', 'valid', 'test']):
     """Creates data streams from fuel hdf5 file.
@@ -378,9 +415,15 @@ def create_custom_streams(filename, training_batch_size, monitoring_batch_size,
                     lambda s: Colorize(s, which_sources=('features',)),
                     results))
 
-    if random_label_dropping:
+    if add_label_uncertainty:
         results = tuple(map(
-                    lambda s: RandomLabelDropping(s,
+                    lambda s: AddLabelUncertainty(s, chance=add_label_uncertainty,
+                                       which_sources=('targets',)),
+                    results))
+
+    if random_label_strip:
+        results = tuple(map(
+                    lambda s: RandomLabelStrip(s, chance=random_label_strip,
                                        which_sources=('targets',)),
                     results))
 
