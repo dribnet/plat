@@ -10,7 +10,7 @@ from fuel.schemes import SequentialExampleScheme, ShuffledScheme, SequentialSche
 from fuel.streams import DataStream
 from fuel.transformers import AgnosticSourcewiseTransformer
 
-def get_dataset_iterator(dataset, split, include_features=True, include_targets=False, unit_scale=True):
+def get_dataset_iterator(dataset, split, include_features=True, include_targets=False, unit_scale=True, label_transforms=False):
     """Get iterator for dataset, split, targets (labels) and scaling (from 255 to 1.0)"""
     sources = []
     sources = sources + ['features'] if include_features else sources
@@ -23,16 +23,32 @@ def get_dataset_iterator(dataset, split, include_features=True, include_targets=
         splits = (split,)
 
     dataset_fname = find_in_data_path("{}.hdf5".format(dataset))
-    datastream = H5PYDataset(dataset_fname, which_sets=splits,
+    h5_dataset = H5PYDataset(dataset_fname, which_sets=splits,
                              sources=sources)
     if unit_scale:
-        datastream.default_transformers = uint8_pixels_to_floatX(('features',))
+        h5_dataset.default_transformers = uint8_pixels_to_floatX(('features',))
 
-    train_stream = DataStream.default_stream(
-        dataset=datastream,
-        iteration_scheme=SequentialExampleScheme(datastream.num_examples))
+    datastream = DataStream.default_stream(
+        dataset=h5_dataset,
+        iteration_scheme=SequentialExampleScheme(h5_dataset.num_examples))
 
-    it = train_stream.get_epoch_iterator()
+    if label_transforms:
+        # TODO: maybe refactor this common bit with get_custom_streams below
+        datastream = AddLabelUncertainty(datastream,
+                                         chance=0,
+                                         which_sources=('targets',))
+
+        datastream = RandomLabelStrip(datastream,
+                                         chance=0,
+                                         which_sources=('targets',))
+
+        # HACK: allow variable stretch
+        datastream = StretchLabels(datastream,
+                                         length=128,
+                                         which_sources=('targets',))
+
+
+    it = datastream.get_epoch_iterator()
     return it
 
 # get images from dataset. numanchors=None to get all. image_size only needed for color conversion
@@ -63,6 +79,29 @@ def get_anchor_images(dataset, split, offset=0, stepsize=1, numanchors=150, allo
                     anchors.append(np.tile(cur[0].reshape(1, image_size, image_size), (3, 1, 1)))
                 else:
                     anchors.append(cur[0])
+    except StopIteration:
+        if numanchors is not None:
+            print("Warning: only read {} of {} requested anchor images".format(len(anchors), numanchors))
+
+    return np.array(anchors)
+
+# TODO / HACK: refactor with above
+def get_anchor_labels(dataset, split, offset=0, stepsize=1, numanchors=150, unit_scale=True):
+    """Get images in np array with filters"""
+    it = get_dataset_iterator(dataset, split, include_features=False, include_targets=True, unit_scale=unit_scale, label_transforms=True)
+
+    anchors = []
+    for i in range(offset):
+        cur = it.next()
+    try:
+        while numanchors == None or len(anchors) < numanchors:
+            cur = it.next()
+            for s in range(stepsize-1):
+                it.next()
+            candidate_passes = True
+
+            if candidate_passes:
+                anchors.append(cur[0])
     except StopIteration:
         if numanchors is not None:
             print("Warning: only read {} of {} requested anchor images".format(len(anchors), numanchors))
@@ -134,12 +173,31 @@ class StretchLabels(AgnosticSourcewiseTransformer):
         self.length = length
 
     def transform_any_source(self, source, _):
-        if len(source > 0):
-            npad = self.length - len(source[0])
-            return [np.pad(a, pad_width=(0, npad), mode='constant',
-                           constant_values=0) for a in source]
+        final_flatten = False
+        if(len(source.shape) == 1):
+            final_flatten = True
+            iters, dim = 1, source.shape[0]
+            source = source.reshape((1, dim))
         else:
-            return source
+            iters, dim = source.shape
+        newdim = self.length
+
+        in_len = len(source[0])
+        fixed = np.zeros((iters, newdim), dtype=np.uint8)
+        fixed[:,:in_len] = source
+
+        # print("IN/OUT: {}, {}".format(source[0], fixed[0]))
+
+        if final_flatten:
+            fixed = fixed.reshape((newdim,))
+        return fixed
+
+        # if len(source > 0):
+        #     npad = self.length - len(source[0])
+        #     return [np.pad(a, pad_width=(0, npad), mode='constant',
+        #                    constant_values=0) for a in source]
+        # else:
+        #     return source
 
 class RandomLabelOptionalSpreader(AgnosticSourcewiseTransformer):
     """Used to stretch a set of vectors making labels optional.
@@ -213,13 +271,10 @@ class RandomLabelOptionalSpreader(AgnosticSourcewiseTransformer):
         # print(fixed[0])
         return np.array(fixed)
 
-class RandomLabelStrip(AgnosticSourcewiseTransformer):
-    """a label vector abcde is randomly replaced with either
-       0abcde or
-       100000
-    """
+### LEGACY FOR STORED MDOELS
+class RandomLabelDropping(AgnosticSourcewiseTransformer):
     def __init__(self, data_stream, chance=50, **kwargs):
-        super(RandomLabelStrip, self).__init__(
+        super(RandomLabelDropping, self).__init__(
              data_stream=data_stream,
              produces_examples=data_stream.produces_examples,
              **kwargs)
@@ -244,6 +299,45 @@ class RandomLabelStrip(AgnosticSourcewiseTransformer):
         # print(source[0])
         return source
 
+class RandomLabelStrip(AgnosticSourcewiseTransformer):
+    """a label vector abcde is randomly replaced with either
+       0abcde or
+       100000
+    """
+    def __init__(self, data_stream, chance=50, **kwargs):
+        super(RandomLabelStrip, self).__init__(
+             data_stream=data_stream,
+             produces_examples=data_stream.produces_examples,
+             **kwargs)
+        self.chance = chance
+
+    def transform_any_source(self, source, _):
+        if not len(source > 0):
+            return source
+
+        # orig_source0 = np.copy(source[0])
+        final_flatten = False
+        if(len(source.shape) == 1):
+            final_flatten = True
+            iters, dim = 1, source.shape[0]
+            source = source.reshape((1, dim))
+        else:
+            iters, dim = source.shape
+        newdim = dim+1
+
+        choice = np.random.uniform(0,100)
+        if choice < self.chance:
+            source = np.zeros((iters, newdim), dtype=np.uint8)
+            source[:,0] = 1
+        else:
+            source = np.pad(source, pad_width=((0, 0), (1, 0)), mode='constant', constant_values=0)
+        # print("COMPARE")
+        # print(orig_source0)
+        # print(source[0])
+        if final_flatten:
+            source = source.reshape((newdim,))
+        return source
+
 class AddLabelUncertainty(AgnosticSourcewiseTransformer):
     """a label vector abcde is randomly replaced with either
        0abcde or
@@ -260,7 +354,13 @@ class AddLabelUncertainty(AgnosticSourcewiseTransformer):
         if not len(source > 0):
             return source
 
-        iters, dim = source.shape
+        final_flatten = False
+        if(len(source.shape) == 1):
+            final_flatten = True
+            iters, dim = 1, source.shape[0]
+            source = source.reshape((1, dim))
+        else:
+            iters, dim = source.shape
         newdim = dim*2
 
         fixed = np.zeros((iters, newdim), dtype=np.uint8)
@@ -275,6 +375,8 @@ class AddLabelUncertainty(AgnosticSourcewiseTransformer):
         # print("COMPARE")
         # print(source[0])
         # print(fixed[0])
+        if final_flatten:
+            fixed = fixed.reshape((newdim,))
         return fixed
 
 def uuid_to_vector(uuid_str):

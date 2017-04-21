@@ -113,14 +113,25 @@ def emit_filename(filename, template_dict, args):
         filename = candidate
     return filename
 
-def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, args=None, batch_size=24, template_dict={}):
+def grid_from_latents(z, dmodel, rows, cols, anchor_images, tight, shoulders, save_path, args=None, batch_size=24, template_dict={}, emb_l=None):
+    use_embedded = True
+    if emb_l is None:
+        emb_l = [None] * len(z)
+        use_embedded = False
+
     z_queue = z[:]
+    e_queue = emb_l[:]
     samples = None
     # print("========> DECODING {} at a time".format(batch_size))
     while(len(z_queue) > 0):
         cur_z = z_queue[:batch_size]
+        cur_e = e_queue[:batch_size]
         z_queue = z_queue[batch_size:]
-        decoded = dmodel.sample_at(cur_z)
+        e_queue = e_queue[batch_size:]
+        if use_embedded:
+            decoded = dmodel.decode_embedded(cur_z, cur_e)
+        else:
+            decoded = dmodel.sample_at(cur_z)
         if samples is None:
             samples = decoded
         else:

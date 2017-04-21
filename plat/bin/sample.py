@@ -14,7 +14,7 @@ import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from plat.fuel_helper import get_anchor_images
+from plat.fuel_helper import get_anchor_images, get_anchor_labels
 from plat.grid_layout import grid2img
 from plat.utils import anchors_from_image, anchors_from_filelist, get_json_vectors
 import plat.sampling
@@ -22,6 +22,7 @@ from plat import zoo
 
 def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur_basename="basename", range_data=None, template_dict={}):
     anchor_images = None
+    anchor_labels = None
     if args.anchors:
         allowed = None
         prohibited = None
@@ -33,6 +34,8 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
             include_targets = True
             prohibited = map(int, args.prohibited.split(","))
         anchor_images = get_anchor_images(args.dataset, args.split, args.offset, args.stepsize, args.numanchors, allowed, prohibited, args.image_size, args.color_convert, include_targets=include_targets)
+        if args.with_labels:
+            anchor_labels = get_anchor_labels(args.dataset, args.split, args.offset, args.stepsize, args.numanchors)
 
     if args.anchor_glob is not None:
         files = plat.sampling.real_glob(args.anchor_glob)
@@ -57,6 +60,10 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
         if args.numanchors is not None:
             anchor_images = anchor_images[:args.numanchors]
 
+    # at this point we can make a dummy anchor_labels if we need
+    if anchor_images is not None and anchor_labels is None:
+        anchor_labels = [None] * len(anchor_images)
+
     if args.passthrough:
         # determine final filename string
         image_size = anchor_images[0].shape[1]
@@ -69,18 +76,28 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
     if dmodel is None:
         dmodel = zoo.load_model(args.model, args.model_file, args.model_type, args.model_interface)
 
+    embedded = None
     if anchor_images is not None:
         x_queue = anchor_images[:]
+        c_queue = anchor_labels[:]
         anchors = None
         # print("========> ENCODING {} at a time".format(args.batch_size))
         while(len(x_queue) > 0):
             cur_x = x_queue[:args.batch_size]
+            cur_c = c_queue[:args.batch_size]
             x_queue = x_queue[args.batch_size:]
-            encoded = dmodel.encode_images(cur_x)
+            c_queue = c_queue[args.batch_size:]
+            encoded = dmodel.encode_images(cur_x, cur_c)
+            try:
+                emb_l = dmodel.embed_labels(cur_c)
+            except AttributeError:
+                emb_l = [None] * args.batch_size
             if anchors is None:
                 anchors = encoded
+                embedded = emb_l
             else:
                 anchors = np.concatenate((anchors, encoded), axis=0)
+                embedded = np.concatenate((embedded, emb_l), axis=0)
 
         # anchors = dmodel.encode_images(anchor_images)
     elif args.anchor_vectors is not None:
@@ -148,7 +165,16 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
         z = z + global_offset
 
     template_dict["BASENAME"] = cur_basename
-    plat.sampling.grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args, args.batch_size, template_dict=template_dict)
+    # emb_l = None
+    # emb_l = [None] * len(z)
+    # emb_l = np.tile(embedded[0], [len(z), 1])
+
+    emb_l = plat.sampling.generate_latent_grid(z_dim, args.rows, args.cols, args.fan, args.gradient, not args.linear, args.gaussian,
+            embedded, anchor_images, True, args.chain, args.spacing, args.analogy)
+    #TODO - maybe not best way to check if labels are valid
+    # if anchor_labels is None or anchor_labels[0] is None:
+    #     emb_l = [None] * len(z)
+    plat.sampling.grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args, args.batch_size, template_dict=template_dict, emb_l=emb_l)
     return dmodel
 
 class AnchorFileHandler(FileSystemEventHandler):
@@ -318,6 +344,8 @@ def sample(parser, context, args):
                         help="number of anchors to generate")
     parser.add_argument('--dataset', dest='dataset', default=None,
                         help="Dataset for anchors.")
+    parser.add_argument("--with-labels", dest='with_labels', default=False, action='store_true',
+                        help="use labels for conditioning information")
     parser.add_argument('--color-convert', dest='color_convert',
                         default=False, action='store_true',
                         help="Convert source dataset to color from grayscale.")
