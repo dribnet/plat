@@ -167,10 +167,12 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
     template_dict["BASENAME"] = cur_basename
     # emb_l = None
     # emb_l = [None] * len(z)
-    # emb_l = np.tile(embedded[0], [len(z), 1])
+    if args.clone_label is not None:
+        emb_l = np.tile(embedded[args.clone_label], [len(z), 1])
+    else:
+        emb_l = plat.sampling.generate_latent_grid(z_dim, args.rows, args.cols, args.fan, args.gradient, not args.linear, args.gaussian,
+                embedded, anchor_images, True, args.chain, args.spacing, args.analogy)
 
-    emb_l = plat.sampling.generate_latent_grid(z_dim, args.rows, args.cols, args.fan, args.gradient, not args.linear, args.gaussian,
-            embedded, anchor_images, True, args.chain, args.spacing, args.analogy)
     #TODO - maybe not best way to check if labels are valid
     # if anchor_labels is None or anchor_labels[0] is None:
     #     emb_l = [None] * len(z)
@@ -346,6 +348,8 @@ def sample(parser, context, args):
                         help="Dataset for anchors.")
     parser.add_argument("--with-labels", dest='with_labels', default=False, action='store_true',
                         help="use labels for conditioning information")
+    parser.add_argument("--clone-label", dest='clone_label', type=int, default=None,
+                        help="clone given label (used with --with-labels)")
     parser.add_argument('--color-convert', dest='color_convert',
                         default=False, action='store_true',
                         help="Convert source dataset to color from grayscale.")
