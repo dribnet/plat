@@ -71,6 +71,10 @@ def vectors_from_json_filelist(filelist):
 
     return np.array(vectors)
 
+# this maybe could replace get_json_vectors
+def get_json_vectors_list(filenames):
+    return vectors_from_json_filelist(filenames.split(","))
+
 def save_json_vectors(vectors, filename):
     """Story np array of vectors as json"""
     with open(filename, 'w') as outfile:

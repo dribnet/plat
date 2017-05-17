@@ -16,7 +16,7 @@ from watchdog.events import FileSystemEventHandler
 
 from plat.fuel_helper import get_anchor_images, get_anchor_labels
 from plat.grid_layout import grid2img
-from plat.utils import anchors_from_image, anchors_from_filelist, get_json_vectors
+from plat.utils import anchors_from_image, anchors_from_filelist, get_json_vectors,get_json_vectors_list
 import plat.sampling
 from plat import zoo
 
@@ -118,7 +118,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
     global_offset = None
     if args.anchor_offset is not None:
         # compute anchors as offsets from existing anchor
-        offsets = get_json_vectors(args.anchor_offset)
+        offsets = get_json_vectors_list(args.anchor_offset)
         if args.anchor_wave:
             anchors = plat.sampling.anchors_wave_offsets(anchors, offsets, args.rows, args.cols, args.spacing,
                 args.radial_wave, args.clip_wave, cur_z_step, args.anchor_offset_x,
@@ -167,16 +167,19 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
     template_dict["BASENAME"] = cur_basename
     # emb_l = None
     # emb_l = [None] * len(z)
-    if args.clone_label is not None:
-        emb_l = np.tile(embedded[args.clone_label], [len(z), 1])
-    else:
-        emb_l = plat.sampling.generate_latent_grid(z_dim, args.rows, args.cols, args.fan, args.gradient, not args.linear, args.gaussian,
-                embedded, anchor_images, True, args.chain, args.spacing, args.analogy)
+    embedded_labels = None
+    # TODO: this could be more elegant
+    if embedded is not None and embedded[0] is not None:
+        if args.clone_label is not None:
+            embedded_labels = np.tile(embedded[args.clone_label], [len(z), 1])
+        else:
+            embedded_labels = plat.sampling.generate_latent_grid(z_dim, args.rows, args.cols, args.fan, args.gradient, not args.linear, args.gaussian,
+                    embedded, anchor_images, True, args.chain, args.spacing, args.analogy)
 
     #TODO - maybe not best way to check if labels are valid
     # if anchor_labels is None or anchor_labels[0] is None:
     #     emb_l = [None] * len(z)
-    plat.sampling.grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args, args.batch_size, template_dict=template_dict, emb_l=emb_l)
+    plat.sampling.grid_from_latents(z, dmodel, args.rows, args.cols, anchor_images, args.tight, args.shoulders, cur_save_path, args, args.batch_size, template_dict=template_dict, emb_l=embedded_labels)
     return dmodel
 
 class AnchorFileHandler(FileSystemEventHandler):
