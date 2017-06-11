@@ -10,7 +10,8 @@ from fuel.schemes import SequentialExampleScheme, ShuffledScheme, SequentialSche
 from fuel.streams import DataStream
 from fuel.transformers import AgnosticSourcewiseTransformer
 
-def get_dataset_iterator(dataset, split, include_features=True, include_targets=False, unit_scale=True, label_transforms=False):
+# hack: added return_length. maybe refactor
+def get_dataset_iterator(dataset, split, include_features=True, include_targets=False, unit_scale=True, label_transforms=False, return_length=False):
     """Get iterator for dataset, split, targets (labels) and scaling (from 255 to 1.0)"""
     sources = []
     sources = sources + ['features'] if include_features else sources
@@ -49,7 +50,10 @@ def get_dataset_iterator(dataset, split, include_features=True, include_targets=
 
 
     it = datastream.get_epoch_iterator()
-    return it
+    if return_length:
+        return it, h5_dataset.num_examples
+    else:
+        return it
 
 # get images from dataset. numanchors=None to get all. image_size only needed for color conversion
 def get_anchor_images(dataset, split, offset=0, stepsize=1, numanchors=150, allowed=None, prohibited=None, image_size=64, color_convert=False, include_targets=True, unit_scale=True):

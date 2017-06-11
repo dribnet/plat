@@ -12,6 +12,7 @@ import datetime
 import os
 import glob
 from braceexpand import braceexpand
+from tqdm import tqdm
 
 from plat.fuel_helper import get_dataset_iterator
 from plat.grid_layout import grid2img, create_gradient_grid, create_mine_grid, create_chain_grid, create_fan_grid
@@ -326,7 +327,7 @@ def get_global_offset(offsets, indices_str, scale):
     return scale * global_offset
 
 def stream_output_vectors(dmodel, dataset, split, outfile=None, batch_size=20, color_convert=False):
-    it = get_dataset_iterator(dataset, split)
+    it, it_len = get_dataset_iterator(dataset, split, return_length=True)
     done = False
 
     # sys.stderr.write("Streaming output vectors to stdout (batch size={})\n".format(batch_size))
@@ -336,11 +337,13 @@ def stream_output_vectors(dmodel, dataset, split, outfile=None, batch_size=20, c
     f_out.write("[\n")
 
     num_output = 0
+    t = tqdm(total=it_len)
     while not done:
         anchors = []
         try:
             for i in range(batch_size):
                 cur = it.next()
+                t.update()
                 if color_convert:
                     anchors.append(np.tile(cur[0].reshape(1, g_image_size, g_image_size), (3, 1, 1)))
                 else:
@@ -366,6 +369,7 @@ def stream_output_vectors(dmodel, dataset, split, outfile=None, batch_size=20, c
     # for v in vectors[-1:]:
     #     print("{}".format(vector_to_json_array(v)))
 
+    t.close()
     f_out.write("]\n")
     f_out.close();
     print("VECTOR OUTPUT END")
