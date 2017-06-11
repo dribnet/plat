@@ -5,6 +5,7 @@ import numpy as np
 from sklearn import metrics
 from sklearn import svm
 import os
+from tqdm import tqdm
 
 import matplotlib
 matplotlib.use('Agg')
@@ -14,14 +15,22 @@ import matplotlib.pyplot as plt
 from plat.fuel_helper import get_dataset_iterator
 from plat.utils import json_list_to_array, get_json_vectors, offset_from_string
 
+def filter_attributes(attribs, which_attribs):
+    if which_attribs is None:
+        return attribs
+    attrib_range = list(map(int, which_attribs.split(",")))
+    new_attribs = attribs[:,:,attrib_range]
+    print("attribs filtered from {} to {}".format(attribs.shape, new_attribs.shape))
+    return new_attribs
 
-def get_averages(attribs, encoded, num_encoded_attributes):
-    with_attr = [[] for x in xrange(num_encoded_attributes)]
-    without_attr = [[] for x in xrange(num_encoded_attributes)]
-    for i in range(len(encoded)):
-        if i % 10000 == 0:
-            print("iteration {}".format(i))
-        for m in range(num_encoded_attributes):
+def get_averages(attribs, encoded):
+    num_items, _, num_attribs = attribs.shape
+    print("Splitting {} items across {} attributes ({}, {})".format(num_items, num_attribs, attribs.shape, encoded.shape))
+
+    with_attr = [[] for x in xrange(num_attribs)]
+    without_attr = [[] for x in xrange(num_attribs)]
+    for i in tqdm(range(num_items)):
+        for m in range(num_attribs):
             if attribs[i][0][m] == 1:
                 with_attr[m].append(encoded[i])
             else:
@@ -201,7 +210,9 @@ def get_balanced_averages(attribs, encoded, indexes):
 
     return with_attr, without_attr
 
-def averages_to_attribute_vectors(with_attr, without_attr, num_encoded_attributes, latent_dim):
+def averages_to_attribute_vectors(with_attr, without_attr):
+    num_encoded_attributes = len(with_attr)
+    _, latent_dim = with_attr[0].shape
     atvecs = np.zeros((num_encoded_attributes, latent_dim))
     for n in range(num_encoded_attributes):
         m1 = np.mean(with_attr[n],axis=0)
@@ -209,9 +220,11 @@ def averages_to_attribute_vectors(with_attr, without_attr, num_encoded_attribute
         atvecs[n] = m1 - m2
     return atvecs
 
-def averages_to_svm_attribute_vectors(with_attr, without_attr, num_encoded_attributes, latent_dim):
+def averages_to_svm_attribute_vectors(with_attr, without_attr):
     h = .02  # step size in the mesh
     C = 1.0  # SVM regularization parameter
+    num_encoded_attributes = len(with_attr)
+    _, latent_dim = with_attr[0].shape
     atvecs = np.zeros((num_encoded_attributes, latent_dim))
     for n in range(num_encoded_attributes):
         X_arr = []
@@ -225,7 +238,9 @@ def averages_to_svm_attribute_vectors(with_attr, without_attr, num_encoded_attri
         X = np.array(X_arr)
         y = np.array(y_arr)
         # svc = svm.LinearSVC(C=C, class_weight="balanced").fit(X, y)
+        print("Computing svm {} with {}, {}".format(n, X.shape, y.shape))
         svc = svm.LinearSVC(C=C).fit(X, y)
+        print("svm computed")
         # get the separating hyperplane
         w = svc.coef_[0]
         # print(w)
@@ -430,6 +445,8 @@ def atvec(parser, context, args):
                         help="Which split to use from the dataset (train/nontrain/valid/test/any).")
     parser.add_argument("--num-attribs", dest='num_attribs', type=int, default=40,
                         help="Number of attributes (labes)")
+    parser.add_argument("--which-attribs", type=str, default=None,
+                        help="optional comma separated list of attributes to run")
     parser.add_argument("--num-classes", dest='num_classes', type=int, default=None,
                         help="For multiclass, number of classes (assumed 0 .. n-1)")
     parser.add_argument("--z-dim", dest='z_dim', type=int, default=100,
@@ -514,14 +531,26 @@ def atvec(parser, context, args):
             save_json_attribs(atvecs, args.outfile)
         sys.exit(0)
 
-    encoded = json_list_to_array(args.encoded_vectors)
+    print("reading encoded vectors...")
+    if args.encoded_vectors.endswith("json"):
+        encoded = json_list_to_array(args.encoded_vectors)
+        print("Read json array: {}".format(encoded.shape))
+    else:
+        encoded = np.load(args.encoded_vectors)['arr_0']
+        print("Read numpy array: {}".format(encoded.shape))
     if args.limit is not None:
         encoded = encoded[:args.limit]
     num_rows, z_dim = encoded.shape
+    print("reading attributes...")
     if args.dataset:
         attribs = np.array(list(get_dataset_iterator(args.dataset, args.split, include_features=False, include_targets=True)))
+        print("Read attributes from dataset: {}".format(attribs.shape))
     else:
+        print("Read attributes from file: {}".format(attribs.shape))
         attribs = get_attribs_from_file(args.labels)
+
+    if args.which_attribs is not None:
+        attribs = filter_attributes(attribs, args.which_attribs)
     print("encoded vectors: {}, attributes: {} ".format(encoded.shape, attribs.shape))
 
     if args.roc:
@@ -553,16 +582,16 @@ def atvec(parser, context, args):
         with_attr, without_attr = get_class_averages(attribs, encoded, args.num_classes);
         num_attribs = args.num_classes
     elif args.num_attribs is not None:
-        with_attr, without_attr = get_averages(attribs, encoded, args.num_attribs);
+        with_attr, without_attr = get_averages(attribs, encoded);
         num_attribs = args.num_attribs
     else:
         print("I think we need either num_classes or num_attribs or something")
         sys.exit(0);
 
     if args.svm:
-        atvects = averages_to_svm_attribute_vectors(with_attr, without_attr, num_attribs, z_dim)
+        atvects = averages_to_svm_attribute_vectors(with_attr, without_attr)
     else:
-        atvects = averages_to_attribute_vectors(with_attr, without_attr, num_attribs, z_dim)
+        atvects = averages_to_attribute_vectors(with_attr, without_attr)
     print("Computed atvecs shape: {}".format(atvects.shape))
 
     if args.outfile is not None:
