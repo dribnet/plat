@@ -51,8 +51,8 @@ function atvec_roc {
   $PLATCMD atvec \
         --roc \
         --dataset $DATASET_VALUE \
-        --split valid \
-        --encoded-vectors "$JSON_SUBDIR/nontrain_vectors.json" \
+        --split test \
+        --encoded-vectors "$JSON_SUBDIR/test_vectors.json" \
         --attribute-vectors $1 \
         --attribute-thresholds $4 \
         --attribute-indices $2 \
@@ -68,6 +68,28 @@ if [ ! -f $JSON_SUBDIR/train_vectors.json ]; then
       --batch-size $BATCH_SIZE \
       --encoder \
       --outfile "$JSON_SUBDIR/train_vectors.json"
+fi
+
+if [ ! -f "$JSON_SUBDIR/valid_vectors.json" ]; then
+    # do valid vectors
+    $PLATCMD sample \
+      $MODEL \
+      --dataset=$DATASET_VALUE \
+      --split valid \
+      --batch-size $BATCH_SIZE \
+      --encoder \
+      --outfile "$JSON_SUBDIR/valid_vectors.json"
+fi
+
+if [ ! -f "$JSON_SUBDIR/test_vectors.json" ]; then
+    # do test vectors
+    $PLATCMD sample \
+      $MODEL \
+      --dataset=$DATASET_VALUE \
+      --split test \
+      --batch-size $BATCH_SIZE \
+      --encoder \
+      --outfile "$JSON_SUBDIR/test_vectors.json"
 fi
 
 declare -A celeba_attribs
@@ -113,17 +135,6 @@ celeba_attribs=(
   ["38"]="wearing_necktie"
   ["39"]="young"
 )
-
-if [ ! -f "$JSON_SUBDIR/nontrain_vectors.json" ]; then
-    # do nontrain vectors
-    $PLATCMD sample \
-      $MODEL \
-      --dataset=$DATASET_VALUE \
-      --split nontrain \
-      --batch-size $BATCH_SIZE \
-      --encoder \
-      --outfile "$JSON_SUBDIR/nontrain_vectors.json"
-fi
 
 # atvec all labels and a balanced male/smile/open mouth
 if [ ! -f "$JSON_SUBDIR/atvecs_all.json" ]; then
