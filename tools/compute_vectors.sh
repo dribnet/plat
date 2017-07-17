@@ -12,6 +12,9 @@ JSON_SUBDIR="${JSON_SUBDIR:-models/celeba_dlib_64_160z_d4_11}"
 BATCH_SIZE="${BATCH_SIZE:-100}"
 IMAGE_SIZE="${IMAGE_SIZE:-64}"
 
+TRAIN_VECTOR_FILE="${TRAIN_VECTOR_FILE:-train_vectors.json}"
+TEST_VECTOR_FILE="${TRAIN_VECTOR_FILE:-test_vectors.json}"
+
 # called with offsetfile, offsetindex, outname
 function sample_vector {
   $PLATCMD sample \
@@ -42,7 +45,7 @@ function atvec_thresh {
         --thresh \
         --dataset $DATASET_VALUE \
         --split train \
-        --encoded-vectors "$JSON_SUBDIR/train_vectors.json" \
+        --encoded-vectors "$JSON_SUBDIR/$TRAIN_VECTOR_FILE" \
         --attribute-vectors $1 \
         --outfile $2
 }
@@ -52,7 +55,7 @@ function atvec_roc {
         --roc \
         --dataset $DATASET_VALUE \
         --split test \
-        --encoded-vectors "$JSON_SUBDIR/test_vectors.json" \
+        --encoded-vectors "$JSON_SUBDIR/$TEST_VECTOR_FILE" \
         --attribute-vectors $1 \
         --attribute-thresholds $4 \
         --attribute-indices $2 \
@@ -60,14 +63,14 @@ function atvec_roc {
 }
 
 # do train vectors
-if [ ! -f $JSON_SUBDIR/train_vectors.json ]; then
+if [ ! -f $JSON_SUBDIR/$TRAIN_VECTOR_FILE ]; then
     $PLATCMD sample \
       $MODEL \
       --dataset=$DATASET_VALUE \
       --split train \
       --batch-size $BATCH_SIZE \
       --encoder \
-      --outfile "$JSON_SUBDIR/train_vectors.json"
+      --outfile "$JSON_SUBDIR/$TRAIN_VECTOR_FILE"
 fi
 
 if [ ! -f "$JSON_SUBDIR/valid_vectors.json" ]; then
@@ -81,7 +84,7 @@ if [ ! -f "$JSON_SUBDIR/valid_vectors.json" ]; then
       --outfile "$JSON_SUBDIR/valid_vectors.json"
 fi
 
-if [ ! -f "$JSON_SUBDIR/test_vectors.json" ]; then
+if [ ! -f "$JSON_SUBDIR/$TEST_VECTOR_FILE" ]; then
     # do test vectors
     $PLATCMD sample \
       $MODEL \
@@ -89,7 +92,7 @@ if [ ! -f "$JSON_SUBDIR/test_vectors.json" ]; then
       --split test \
       --batch-size $BATCH_SIZE \
       --encoder \
-      --outfile "$JSON_SUBDIR/test_vectors.json"
+      --outfile "$JSON_SUBDIR/$TEST_VECTOR_FILE"
 fi
 
 declare -A celeba_attribs
@@ -143,16 +146,21 @@ if [ ! -f "$JSON_SUBDIR/atvecs_all.json" ]; then
       --split train \
       --num-attribs 40 \
       --svm \
-      --encoded-vectors "$JSON_SUBDIR/train_vectors.json" \
+      --encoded-vectors "$JSON_SUBDIR/$TRAIN_VECTOR_FILE" \
       --outfile "$JSON_SUBDIR/atvecs_all.json"
+fi
 
+
+if [ ! -f "$JSON_SUBDIR/atvecs_all_mean.json" ]; then
     $PLATCMD atvec --dataset=$DATASET_VALUE \
       --dataset "$DATASET_VALUE" \
       --split train \
       --num-attribs 40 \
-      --encoded-vectors "$JSON_SUBDIR/train_vectors.json" \
+      --encoded-vectors "$JSON_SUBDIR/$TRAIN_VECTOR_FILE" \
       --outfile "$JSON_SUBDIR/atvecs_all_mean.json"
+fi
 
+if [ ! -f "$JSON_SUBDIR/atvecs_all_thresholds.json" ]; then
     atvec_thresh "$JSON_SUBDIR/atvecs_all.json" "$JSON_SUBDIR/atvecs_all_thresholds.json"
     for index in "${!celeba_attribs[@]}"; do
         atvec_roc     "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]} "$JSON_SUBDIR/atvecs_all_thresholds.json"
@@ -160,14 +168,16 @@ if [ ! -f "$JSON_SUBDIR/atvecs_all.json" ]; then
     for index in "${!celeba_attribs[@]}"; do
         sample_vector "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]}
     done
+fi
 
+if [ ! -f "$JSON_SUBDIR/atvecs_all_mean_thresholds.json" ]; then
     atvec_thresh "$JSON_SUBDIR/atvecs_all_mean.json" "$JSON_SUBDIR/atvecs_all_mean_thresholds.json"
     for index in "${!celeba_attribs[@]}"; do
         atvec_roc     "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_mean_"${celeba_attribs[$index]} "$JSON_SUBDIR/atvecs_all_mean_thresholds.json"
     done
-    for index in "${!celeba_attribs[@]}"; do
-        sample_vector "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_mean_"${celeba_attribs[$index]}
-    done
+    # for index in "${!celeba_attribs[@]}"; do
+    #     sample_vector "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_mean_"${celeba_attribs[$index]}
+    # done
 fi
 
 if [ ! -f "$JSON_SUBDIR/atvecs_balanced_20_21_31.json" ]; then
@@ -176,7 +186,7 @@ if [ ! -f "$JSON_SUBDIR/atvecs_balanced_20_21_31.json" ]; then
       --split train \
       --num-attribs 40 \
       --svm \
-      --encoded-vectors $JSON_SUBDIR/train_vectors.json \
+      --encoded-vectors $JSON_SUBDIR/$TRAIN_VECTOR_FILE \
       --balanced 20,21,31 \
       --outfile "$JSON_SUBDIR/atvecs_balanced_20_21_31.json"
 
@@ -184,7 +194,7 @@ if [ ! -f "$JSON_SUBDIR/atvecs_balanced_20_21_31.json" ]; then
       --dataset "$DATASET_VALUE" \
       --split train \
       --num-attribs 40 \
-      --encoded-vectors $JSON_SUBDIR/train_vectors.json \
+      --encoded-vectors $JSON_SUBDIR/$TRAIN_VECTOR_FILE \
       --balanced 20,21,31 \
       --outfile "$JSON_SUBDIR/atvecs_balanced_mean_20_21_31.json"
 
