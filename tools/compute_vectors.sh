@@ -13,7 +13,7 @@ BATCH_SIZE="${BATCH_SIZE:-100}"
 IMAGE_SIZE="${IMAGE_SIZE:-64}"
 
 TRAIN_VECTOR_FILE="${TRAIN_VECTOR_FILE:-train_vectors.json}"
-TEST_VECTOR_FILE="${TRAIN_VECTOR_FILE:-test_vectors.json}"
+TEST_VECTOR_FILE="${TEST_VECTOR_FILE:-test_vectors.json}"
 
 # called with offsetfile, offsetindex, outname
 function sample_vector {
@@ -57,7 +57,7 @@ function atvec_roc {
         --split test \
         --encoded-vectors "$JSON_SUBDIR/$TEST_VECTOR_FILE" \
         --attribute-vectors $1 \
-        --attribute-thresholds $4 \
+        --attribute-set $4 \
         --attribute-indices $2 \
         --outfile $JSON_SUBDIR"/atvec_"$3
 }
@@ -160,24 +160,32 @@ if [ ! -f "$JSON_SUBDIR/atvecs_all_mean.json" ]; then
       --outfile "$JSON_SUBDIR/atvecs_all_mean.json"
 fi
 
-if [ ! -f "$JSON_SUBDIR/atvecs_all_thresholds.json" ]; then
-    atvec_thresh "$JSON_SUBDIR/atvecs_all.json" "$JSON_SUBDIR/atvecs_all_thresholds.json"
+# if [ ! -f "$JSON_SUBDIR/atvecs_all_thresholds.json" ]; then
+if [ ! -f "$JSON_SUBDIR/atvecs_roc_done.txt" ]; then
+    # atvec_thresh "$JSON_SUBDIR/atvecs_all.json" "$JSON_SUBDIR/atvecs_all_thresholds.json"
     for index in "${!celeba_attribs[@]}"; do
-        atvec_roc     "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]} "$JSON_SUBDIR/atvecs_all_thresholds.json"
+        atvec_roc     "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]} "all"
+        atvec_roc     "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]} "true"
+        atvec_roc     "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]} "false"
     done
     for index in "${!celeba_attribs[@]}"; do
         sample_vector "$JSON_SUBDIR/atvecs_all.json" $index "celeba_"$index"_"${celeba_attribs[$index]}
     done
+    touch "$JSON_SUBDIR/atvecs_roc_done.txt"
 fi
 
-if [ ! -f "$JSON_SUBDIR/atvecs_all_mean_thresholds.json" ]; then
-    atvec_thresh "$JSON_SUBDIR/atvecs_all_mean.json" "$JSON_SUBDIR/atvecs_all_mean_thresholds.json"
+# if [ ! -f "$JSON_SUBDIR/atvecs_all_mean_thresholds.json" ]; then
+if [ ! -f "$JSON_SUBDIR/atvecs_roc_mean_done.txt" ]; then
+    # atvec_thresh "$JSON_SUBDIR/atvecs_all_mean.json" "$JSON_SUBDIR/atvecs_all_mean_thresholds.json"
     for index in "${!celeba_attribs[@]}"; do
-        atvec_roc     "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_mean_"${celeba_attribs[$index]} "$JSON_SUBDIR/atvecs_all_mean_thresholds.json"
+        atvec_roc     "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_mean_"${celeba_attribs[$index]} "all"
+        atvec_roc     "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_mean_"${celeba_attribs[$index]} "true"
+        atvec_roc     "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_mean_"${celeba_attribs[$index]} "false"
     done
     # for index in "${!celeba_attribs[@]}"; do
     #     sample_vector "$JSON_SUBDIR/atvecs_all_mean.json" $index "celeba_"$index"_mean_"${celeba_attribs[$index]}
     # done
+    touch "$JSON_SUBDIR/atvecs_roc_mean_done.txt"
 fi
 
 if [ ! -f "$JSON_SUBDIR/atvecs_balanced_20_21_31.json" ]; then

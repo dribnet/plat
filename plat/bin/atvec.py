@@ -346,12 +346,19 @@ def do_thresh(atvecs, encoded, attribs, outfile, isclass=False):
     save_json_attribs(thresh_array, outfile)
 
 
-def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile, isclass):
+def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, attrib_set, outfile, isclass):
     if outfile is None:
         outfile = "roc"
     if threshold is None:
         threshold = 0
     title = os.path.basename(outfile)
+
+    score_negative = True
+    score_positive = True
+    if attrib_set == "false":
+        score_positive = False
+    elif attrib_set == "true":
+        score_negative = False
 
     l = min(len(encoded), len(attribs))
     y_list = []
@@ -362,12 +369,10 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile, i
     print(attribs.shape)
     for i in range(l):
         score = np.dot(chosen_vector, encoded[i])
-        score_list.append(score)
-        if score < threshold:
-            y_pred_list.append(0)
-        else:
-            y_pred_list.append(1)
+        did_append = False
         if isclass:
+            did_append = True
+            score_list.append(score)
             if attribs[i][0] == attribs_index:
                 y_list.append(1)
             else:
@@ -377,11 +382,23 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile, i
             else:
                 score_false_list.append(score)
         else:
-            y_list.append(attribs[i][0][attribs_index])
-            if attribs[i][0][attribs_index] == 1:
+            label = attribs[i][0][attribs_index]
+            if label == 1 and score_positive:
+                did_append = True
+                y_list.append(label)
+                score_list.append(score)
                 score_true_list.append(score)
-            else:
+            elif label != 1 and score_negative:
+                did_append = True
+                y_list.append(label)
+                score_list.append(score)
                 score_false_list.append(score)
+        if did_append:
+            if score < threshold:
+                y_pred_list.append(0)
+            else:
+                y_pred_list.append(1)
+
 
     y = np.array(y_list)
     scores = np.array(score_list)
@@ -393,7 +410,7 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile, i
     fpr, tpr, thresholds = metrics.roc_curve(y, scores)
     roc_auc = metrics.auc(fpr, tpr)
     accuracy = metrics.accuracy_score(y, y_pred)
-    print("{} ROC AUC is {:.03f} and accuracy is {:.03f}".format(title, roc_auc, accuracy))
+    print("{} ({} rows) ROC AUC is {:.03f} and accuracy is {:.03f}".format(title, len(y), roc_auc, accuracy))
     plt.figure()
     lw = 2
     plt.plot(fpr, tpr, color='darkorange',
@@ -405,7 +422,7 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile, i
     plt.ylabel('True Positive Rate')
     plt.title('{} ROC (acc={:.03f})'.format(title, accuracy))
     plt.legend(loc="lower right")
-    plt.savefig('{}_roc.png'.format(outfile), bbox_inches='tight')
+    plt.savefig('{}_{}_roc.png'.format(outfile, attrib_set), bbox_inches='tight')
 
     # # the histogram of the data
     # plt.figure()
@@ -428,7 +445,7 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, outfile, i
     # plt.axis([40, 160, 0, 0.03])
     plt.grid(True)
     plt.axvline(threshold, color='b', linestyle='dashed', linewidth=2)
-    plt.savefig('{}_hist.png'.format(outfile), bbox_inches='tight')
+    plt.savefig('{}_{}_hist.png'.format(outfile, attrib_set), bbox_inches='tight')
 
 def get_attribs_from_file(file):
     with open(file) as f:
@@ -465,6 +482,8 @@ def atvec(parser, context, args):
                         help="use json file as source of attribute vectors")
     parser.add_argument("--attribute-thresholds", dest='attribute_thresholds', default=None,
                         help="use these non-zero values for binary classifier thresholds")
+    parser.add_argument("--attribute-set", dest='attribute_set', default="all",
+                        help="score ROC/accuracy against true/false/all")
     parser.add_argument('--attribute-indices', dest='attribute_indices', default=None, type=str,
                         help="indices to select specific attribute vectors")
     parser.add_argument("--balanced2", dest='balanced2', type=str, default=None,
@@ -562,7 +581,7 @@ def atvec(parser, context, args):
             threshold = atvec_thresholds[0][int(args.attribute_indices)]
         else:
             threshold = None
-        do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices), threshold, args.outfile, isclass=(args.num_classes is not None))
+        do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices), threshold, args.attribute_set, args.outfile, isclass=(args.num_classes is not None))
         sys.exit(0)
 
     if args.thresh:
