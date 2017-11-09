@@ -470,6 +470,10 @@ def atvec(parser, context, args):
                         help="z dimension of vectors")
     parser.add_argument("--encoded-vectors", type=str, default=None,
                         help="Comma separated list of json arrays")
+    parser.add_argument("--encoded-true", type=str, default=None,
+                        help="Comma separated list of json arrays (true)")
+    parser.add_argument("--encoded-false", type=str, default=None,
+                        help="Comma separated list of json arrays (false)")
     parser.add_argument('--thresh', dest='thresh', default=False, action='store_true',
                         help="Compute thresholds for attribute vectors classifiers")
     parser.add_argument('--svm', dest='svm', default=False, action='store_true',
@@ -551,22 +555,45 @@ def atvec(parser, context, args):
         sys.exit(0)
 
     print("reading encoded vectors...")
-    if args.encoded_vectors.endswith("json"):
-        encoded = json_list_to_array(args.encoded_vectors)
-        print("Read json array: {}".format(encoded.shape))
+    attribs = None
+    if args.encoded_vectors is not None:
+        if args.encoded_vectors.endswith("json"):
+            encoded = json_list_to_array(args.encoded_vectors)
+            print("Read json array: {}".format(encoded.shape))
+        else:
+            encoded = np.load(args.encoded_vectors)['arr_0']
+            print("Read numpy array: {}".format(encoded.shape))
     else:
-        encoded = np.load(args.encoded_vectors)['arr_0']
-        print("Read numpy array: {}".format(encoded.shape))
+        if args.encoded_true.endswith("json"):
+            encoded_true = json_list_to_array(args.encoded_true)
+            print("Read true json array: {}".format(encoded_true.shape))
+        else:
+            encoded_true = np.load(args.encoded_true)['arr_0']
+            print("Read true numpy array: {}".format(encoded_true.shape))
+        if args.encoded_false.endswith("json"):
+            encoded_false = json_list_to_array(args.encoded_false)
+            print("Read false json array: {}".format(encoded_false.shape))
+        else:
+            encoded_false = np.load(args.encoded_false)['arr_0']
+            print("Read false numpy array: {}".format(encoded_false.shape))
+        encoded = np.concatenate((encoded_true, encoded_false), axis=0)
+        num_true = len(encoded_true)
+        num_false = len(encoded_false)
+        true_values = np.ones(shape=[num_true,1,1], dtype=np.int)
+        false_values = np.zeros(shape=[num_false,1,1], dtype=np.int)
+        attribs = np.concatenate((true_values, false_values), axis=0)
+
     if args.limit is not None:
         encoded = encoded[:args.limit]
     num_rows, z_dim = encoded.shape
-    print("reading attributes...")
-    if args.dataset:
-        attribs = np.array(list(get_dataset_iterator(args.dataset, args.split, include_features=False, include_targets=True)))
-        print("Read attributes from dataset: {}".format(attribs.shape))
-    else:
-        print("Read attributes from file: {}".format(attribs.shape))
-        attribs = get_attribs_from_file(args.labels)
+    if attribs is None:
+        print("reading attributes...")
+        if args.dataset:
+            attribs = np.array(list(get_dataset_iterator(args.dataset, args.split, include_features=False, include_targets=True)))
+            print("Read attributes from dataset: {}".format(attribs.shape))
+        else:
+            print("Read attributes from file: {}".format(attribs.shape))
+            attribs = get_attribs_from_file(args.labels)
 
     if args.which_attribs is not None:
         attribs = filter_attributes(attribs, args.which_attribs)
