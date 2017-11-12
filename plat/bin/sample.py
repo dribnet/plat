@@ -227,7 +227,7 @@ class AnchorFileHandler(FileSystemEventHandler):
                     print("Opening {}".format(j))
                     with open(j) as json_file:
                         range_data = np.array(json.load(json_file)["points"])
-                        print range_data.shape
+                        print(range_data.shape)
                         self.anchor_path_list.append(range_data)
             cur_z_step = 0
             z_step = 1
