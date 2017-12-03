@@ -447,10 +447,32 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, attrib_set
     plt.axvline(threshold, color='b', linestyle='dashed', linewidth=2)
     plt.savefig('{}_{}_hist.png'.format(outfile, attrib_set), bbox_inches='tight')
 
-def get_attribs_from_file(file):
+def get_attribs_from_file1(file):
     with open(file) as f:
         lines = f.readlines()
     a = [[[int(l.rstrip())]] for l in lines]
+    a = np.array(a)
+    print("Read attributes {} from {}".format(a.shape, file))
+    return a
+
+def get_attribs_from_file(filelist):
+    files = filelist.split(",")
+    lists = []
+    for filename in files:
+        with open(filename) as f:
+            lines = f.readlines()
+            lists.append(lines)
+    num_items = len(lists[0])
+    num_lists = len(lists)
+    a = []
+    for i in range(num_items):
+        entry = []
+        for j in range(num_lists):
+            entry.append(int(lists[j][i].rstrip()))
+        a.append([entry])
+    a = np.array(a)
+    print("Read attributes {} from {}".format(a.shape, filelist))
+    # a = [[[int(l.rstrip())]] for l in lines]
     return np.array(a)
 
 def atvec(parser, context, args):
@@ -592,7 +614,7 @@ def atvec(parser, context, args):
             attribs = np.array(list(get_dataset_iterator(args.dataset, args.split, include_features=False, include_targets=True)))
             print("Read attributes from dataset: {}".format(attribs.shape))
         else:
-            print("Read attributes from file: {}".format(attribs.shape))
+            print("Read attributes from file: {}".format(args.labels))
             attribs = get_attribs_from_file(args.labels)
 
     if args.which_attribs is not None:

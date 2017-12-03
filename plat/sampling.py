@@ -26,7 +26,7 @@ def real_glob(rglob):
     files = []
     for g in glob_list:
         files = files + glob.glob(g)
-    return files
+    return sorted(files)
 
 # returns new version of images, rows, cols
 def add_shoulders(images, anchor_images, rows, cols):

@@ -1,7 +1,7 @@
 import numpy as np
 from PIL import Image
 from plat.interpolate import get_interpfn
-from scipy.special import ndtri, ndtr
+from scipy.special import ndtri
 
 def grid2img(arr, rows, cols, with_space):
     """Convert an image grid to a single image"""
