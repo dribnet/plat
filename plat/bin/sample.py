@@ -87,7 +87,9 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
             cur_c = c_queue[:args.batch_size]
             x_queue = x_queue[args.batch_size:]
             c_queue = c_queue[args.batch_size:]
-            encoded = dmodel.encode_images(cur_x, cur_c)
+            # TODO: remove vestiges of conditional encode/decode
+            # encoded = dmodel.encode_images(cur_x, cur_c)
+            encoded = dmodel.encode_images(cur_x)
             try:
                 emb_l = dmodel.embed_labels(cur_c)
             except AttributeError:
