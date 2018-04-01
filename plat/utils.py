@@ -46,8 +46,10 @@ def anchors_from_filelist(filelist, channels=3, unit_scale=True):
         dimension = len(rawim.shape)
         if dimension >= 3:
             entry = np.asarray([rawim[:,:,0], rawim[:,:,1], rawim[:,:,2]])
-        else:
+        elif channels == 3:
             entry = np.asarray([rawim[:,:], rawim[:,:], rawim[:,:]])
+        else:
+            entry = np.asarray([rawim[:,:]])
 
         if unit_scale:
             entry = (entry / 255.0).astype('float32')

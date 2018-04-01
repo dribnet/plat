@@ -45,7 +45,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
             files = files[::args.stepsize]
         if args.numanchors is not None:
             files = files[:args.numanchors]
-        anchor_images = anchors_from_filelist(files)
+        anchor_images = anchors_from_filelist(files, args.channels)
         print("Read {} images from {} files".format(len(anchor_images), len(files)))
         if len(anchor_images) == 0:
             print("No images, cannot contine")
@@ -76,6 +76,14 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
     if dmodel is None:
         dmodel = zoo.load_model(args.model, args.model_file, args.model_type, args.model_interface)
 
+    if args.seed is not None:
+        print("Setting random seed to ", args.seed)
+        np.random.seed(args.seed)
+        random.seed(args.seed)
+    else:
+        np.random.seed(None)
+        random.seed(None)
+
     embedded = None
     if anchor_images is not None:
         x_queue = anchor_images[:]
@@ -104,6 +112,10 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
         # anchors = dmodel.encode_images(anchor_images)
     elif args.anchor_vectors is not None:
         anchors = get_json_vectors(args.anchor_vectors)
+        # print("Read vectors: ", anchors.shape)
+        vsize = anchors.shape[-1]
+        anchors = anchors.reshape([-1, vsize])
+        print("Read vectors: ", anchors.shape)
     else:
         anchors = None
 
@@ -163,6 +175,9 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
             anchors = rand_anchors
     z = plat.sampling.generate_latent_grid(z_dim, args.rows, args.cols, args.fan, args.gradient, not args.linear, args.gaussian,
             anchors, anchor_images, True, args.chain, args.spacing, args.analogy)
+    if args.write_anchors:
+        plat.sampling.output_vectors(anchors, "anchors.json")
+
     if global_offset is not None:
         z = z + global_offset
 
@@ -340,6 +355,8 @@ def sample(parser, context, args):
                         help="monitor anchor-directory indefinitely")
     parser.add_argument('--anchor-image', dest='anchor_image', default=None,
                         help="use image as source of anchors")
+    parser.add_argument("--channels", type=int, default=3,
+                        help="number of channels on input images read")
     parser.add_argument('--anchor-vectors', dest='anchor_vectors', default=None,
                         help="use json file as source of anchors")
     parser.add_argument('--invert-anchors', dest='invert_anchors',
@@ -372,6 +389,8 @@ def sample(parser, context, args):
                         help="Append anchors to left/right columns")
     parser.add_argument('--encoder', dest='encoder', default=False, action='store_true',
                         help="Ouput dataset as encoded vectors")
+    parser.add_argument('--write-anchors', dest='write_anchors', default=False, action='store_true',
+                        help="save anchors in anchors.json")
     parser.add_argument("--batch-size", dest='batch_size',
                         type=int, default=64,
                         help="batch size when encoding vectors")
@@ -390,10 +409,6 @@ def sample(parser, context, args):
     parser.add_argument('--z-initial', dest='z_initial', default=0.0, type=float,
                         help="initial value of variable stepped each template step")
     args = parser.parse_args(args)
-
-    if args.seed is not None:
-        np.random.seed(args.seed)
-        random.seed(args.seed)
 
     dmodel = None
     if args.preload_model:

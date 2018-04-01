@@ -68,6 +68,7 @@ def generate_latent_grid(z_dim, rows, cols, fan, gradient, spherical, gaussian, 
         if rand_uniform:
             z = np.random.uniform(-1, 1, size=(rows * cols, z_dim))
         else:
+            # print("Generating random grid with seed ", np.random.get_state()[1][:5])
             z = np.random.normal(loc=0, scale=1, size=(rows * cols, z_dim))
 
     return z
