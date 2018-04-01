@@ -7,7 +7,10 @@ install_requires = [
     'Pillow',
     'arghandler',
     'braceexpand',
-    'fuel'
+    'watchdog',
+    'tqdm',
+    'sklearn',
+    'matplotlib'
 ]
 
 setup(name='plat',

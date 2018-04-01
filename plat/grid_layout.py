@@ -18,7 +18,7 @@ def grid2img(arr, rows, cols, with_space):
     I = np.zeros((channels, total_height, total_width))
     I.fill(1)
 
-    for i in xrange(rows*cols):
+    for i in range(rows*cols):
         if i < N:
             r = i // cols
             c = i % cols

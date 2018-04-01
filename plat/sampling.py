@@ -14,7 +14,7 @@ import glob
 from braceexpand import braceexpand
 from tqdm import tqdm
 
-from plat.fuel_helper import get_dataset_iterator
+# from plat.fuel_helper import get_dataset_iterator
 from plat.grid_layout import grid2img, create_gradient_grid, create_mine_grid, create_chain_grid, create_fan_grid
 from plat.utils import offset_from_string
 from plat.interpolate import lerp

@@ -14,7 +14,7 @@ import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from plat.fuel_helper import get_anchor_images, get_anchor_labels
+# from plat.fuel_helper import get_anchor_images, get_anchor_labels
 from plat.grid_layout import grid2img
 from plat.utils import anchors_from_image, anchors_from_filelist, get_json_vectors,get_json_vectors_list
 import plat.sampling
@@ -266,12 +266,10 @@ class AnchorFileHandler(FileSystemEventHandler):
             self.process(event.src_path)
 
 def sample(parser, context, args):
-    parser.add_argument("--interface", dest='model_class', type=str,
-                        default=None, help="class encapsulating model")
     parser.add_argument('--preload-model', default=False, action='store_true',
                         help="Load the model first before starting processing")
     parser.add_argument("--model", dest='model', type=str, default=None,
-                        help="name of model in plat zoo")
+                        help="name of model")
     parser.add_argument("--model-file", dest='model_file', type=str, default=None,
                         help="path to the saved model")
     parser.add_argument("--model-type", dest='model_type', type=str, default=None,
@@ -392,10 +390,6 @@ def sample(parser, context, args):
     parser.add_argument('--z-initial', dest='z_initial', default=0.0, type=float,
                         help="initial value of variable stepped each template step")
     args = parser.parse_args(args)
-
-    # check for model download first
-    if args.model is not None:
-        zoo.check_model_download(args.model)
 
     if args.seed is not None:
         np.random.seed(args.seed)

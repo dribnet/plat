@@ -5,7 +5,7 @@ import tempfile
 import gzip
 import shutil
 from distutils.util import strtobool
-from fuel.downloaders.base import default_downloader
+# from fuel.downloaders.base import default_downloader
 
 def get_platzoo_dir():
     platzoo_dir = os.environ.get('PLATZOO_DIR')
@@ -61,6 +61,10 @@ def load_model(model=None, model_file_name=None, model_type=None, model_interfac
 
     After resolution, the model is loaded and returned.
     """
+
+    if model == None and model_interface == None and model_file_name == None:
+        model_interface = "plat.interface.progan128.Model"
+        model_file_name = ""
 
     if model_file_name == None:
         model_file_name = resolve_model_to_filename(model)

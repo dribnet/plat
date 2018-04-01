@@ -8,11 +8,8 @@ Utilities for exploring generative latent spaces as described in the
 Install this library, code supporting a model type, and go.
 ```
 $ pip install plat
-$ pip install git+https://github.com/dribnet/discgen.git \
-  -r https://raw.githubusercontent.com/dribnet/discgen/master/requirements.txt
-$ plat sample --model celeba_64.discgen
-Model celeba_64.discgen will be downloaded. Continue? [Y/n] y
-Saving image file plat_20161006_celeba_64_discgen_01.png
+$ plat sample
+Saving image file plat_20180401_NoModel_01.png
 ```
 ![output image](examples/quickstart.jpg "plat output")
 
@@ -24,7 +21,6 @@ you can also specify a random seed.
 
 ```
 $ plat sample \
-  --model celeba_64.discgen \
   --seed 1 \
   --outfile examples/random_sample.jpg
 ```
@@ -35,7 +31,6 @@ done by specifying the spacing between samples.
 
 ```
 $ plat sample \
-  --model celeba_64.discgen \
   --seed 1 \
   --rows 1 --cols 7 \
   --spacing 6 \
@@ -48,9 +43,8 @@ create a mine grid (details in [paper](http://arxiv.org/abs/1609.04468)).
 
 ```
 $ plat sample \
-  --model celeba_64.discgen \
   --seed 1 \
-  --rows 3 --cols 7 \
+  --rows 4 --cols 7 \
   --spacing 3 \
   --outfile examples/random_mine_grid.jpg
 ```
@@ -61,7 +55,6 @@ useful to use a templated output filename.
 
 ```
 $ plat sample \
-  --model celeba_64.discgen \
   --seed 17 \
   --tight \
   --rows 3 --cols 7 \

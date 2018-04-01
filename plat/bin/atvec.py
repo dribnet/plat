@@ -12,7 +12,7 @@ matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 # Force matplotlib to not use any Xwindows backend.
-from plat.fuel_helper import get_dataset_iterator
+# from plat.fuel_helper import get_dataset_iterator
 from plat.utils import json_list_to_array, get_json_vectors, offset_from_string
 
 def filter_attributes(attribs, which_attribs):
