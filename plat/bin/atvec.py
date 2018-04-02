@@ -27,8 +27,8 @@ def get_averages(attribs, encoded):
     num_items, _, num_attribs = attribs.shape
     print("Splitting {} items across {} attributes ({}, {})".format(num_items, num_attribs, attribs.shape, encoded.shape))
 
-    with_attr = [[] for x in xrange(num_attribs)]
-    without_attr = [[] for x in xrange(num_attribs)]
+    with_attr = [[] for x in range(num_attribs)]
+    without_attr = [[] for x in range(num_attribs)]
     for i in tqdm(range(num_items)):
         for m in range(num_attribs):
             if attribs[i][0][m] == 1:
@@ -36,16 +36,16 @@ def get_averages(attribs, encoded):
             else:
                 without_attr[m].append(encoded[i])
 
-    print("With: {}".format(map(len, with_attr)))
-    print("Without: {}".format(map(len, without_attr)))
+    print("With: {}".format(list(map(len, with_attr))))
+    print("Without: {}".format(list(map(len, without_attr))))
 
-    with_attr = map(np.array, with_attr)
-    without_attr = map(np.array, without_attr)
+    with_attr = list(map(np.array, with_attr))
+    without_attr = list(map(np.array, without_attr))
     return with_attr, without_attr
 
 def get_class_averages(attribs, encoded, num_classes):
-    with_attr = [[] for x in xrange(num_classes)]
-    without_attr = [[] for x in xrange(num_classes)]
+    with_attr = [[] for x in range(num_classes)]
+    without_attr = [[] for x in range(num_classes)]
     for i in range(len(encoded)):
         if i % 10000 == 0:
             print("iteration {}".format(i))
@@ -353,6 +353,8 @@ def do_roc(chosen_vector, encoded, attribs, attribs_index, threshold, attrib_set
         threshold = 0
     title = os.path.basename(outfile)
 
+    # print("---> ", attribs.shape, attribs, attribs[0][0], attribs_index)
+
     score_negative = True
     score_positive = True
     if attrib_set == "false":
@@ -455,7 +457,7 @@ def get_attribs_from_file1(file):
     print("Read attributes {} from {}".format(a.shape, file))
     return a
 
-def get_attribs_from_file(filelist):
+def get_attribs_from_files(filelist):
     files = filelist.split(",")
     lists = []
     for filename in files:
@@ -472,14 +474,36 @@ def get_attribs_from_file(filelist):
         a.append([entry])
     a = np.array(a)
     print("Read attributes {} from {}".format(a.shape, filelist))
+    # print(a[:5])
+    # sys.exit(0)
     # a = [[[int(l.rstrip())]] for l in lines]
+    return np.array(a)
+
+def get_attribs_from_class_file(filename, num_classes):
+    with open(filename) as f:
+        lines = f.readlines()
+    a = []
+    num_items = len(lines)
+    for i in range(num_items):
+        class_id = int(lines[i].rstrip())
+        entry = [0] * num_classes
+        entry[class_id] = 1
+        a.append([entry])
+        # a.append(entry)
+    a = np.array(a)
+    print("Read attributes {} from {}".format(a.shape, filename))
+    # print(a[:5])
+    # sys.exit(0)
     return np.array(a)
 
 def atvec(parser, context, args):
     parser.add_argument('--dataset', dest='dataset', default=None,
                         help="Source dataset (for labels).")
-    parser.add_argument('--labels', dest='labels', default=None,
+    # memo: --labels became --attributes when --classes was added
+    parser.add_argument('--attributes', dest='attributes', default=None,
                         help="Text file with 0/1 labels.")
+    parser.add_argument('--classes', dest='classes', default=None,
+                        help="Text file with 0/1/2/.../num-classes-1 labels.")
     parser.add_argument('--split', dest='split', default="train",
                         help="Which split to use from the dataset (train/nontrain/valid/test/any).")
     parser.add_argument("--num-attribs", dest='num_attribs', type=int, default=40,
@@ -613,9 +637,15 @@ def atvec(parser, context, args):
         if args.dataset:
             attribs = np.array(list(get_dataset_iterator(args.dataset, args.split, include_features=False, include_targets=True)))
             print("Read attributes from dataset: {}".format(attribs.shape))
+        elif args.attributes is not None:
+            print("Read attributes from file: {}".format(args.attributes))
+            attribs = get_attribs_from_files(args.attributes)
+        elif args.classes is not None:
+            print("Read attributes from file: {}".format(args.classes))
+            attribs = get_attribs_from_class_file(args.classes, args.num_classes)
         else:
-            print("Read attributes from file: {}".format(args.labels))
-            attribs = get_attribs_from_file(args.labels)
+            print("Don't know how to get labels: try --attributes or --classes")
+            sys.exit(1)
 
     if args.which_attribs is not None:
         attribs = filter_attributes(attribs, args.which_attribs)
@@ -630,7 +660,8 @@ def atvec(parser, context, args):
             threshold = atvec_thresholds[0][int(args.attribute_indices)]
         else:
             threshold = None
-        do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices), threshold, args.attribute_set, args.outfile, isclass=(args.num_classes is not None))
+        do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices), threshold, args.attribute_set, args.outfile, isclass=False)
+        # do_roc(chosen_vector, encoded, attribs, int(args.attribute_indices), threshold, args.attribute_set, args.outfile, isclass=(args.num_classes is not None))
         sys.exit(0)
 
     if args.thresh:
@@ -646,9 +677,10 @@ def atvec(parser, context, args):
         indexes = map(int, args.balanced.split(","))
         with_attr, without_attr = get_balanced_averages(attribs, encoded, indexes);
         num_attribs = len(indexes)
-    elif args.num_classes is not None:
-        with_attr, without_attr = get_class_averages(attribs, encoded, args.num_classes);
-        num_attribs = args.num_classes
+    # I can't remember why
+    # elif args.num_classes is not None:
+    #     with_attr, without_attr = get_class_averages(attribs, encoded, args.num_classes);
+    #     num_attribs = args.num_classes
     elif args.num_attribs is not None:
         with_attr, without_attr = get_averages(attribs, encoded);
         num_attribs = args.num_attribs

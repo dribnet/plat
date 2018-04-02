@@ -5,7 +5,12 @@ import json
 def anchors_from_image(fname, channels=3, image_size=(64,64), unit_scale=True):
     """Get a series of small images from a single large image"""
     rawim = imread(fname);
-    if(channels == 1):
+    dimension = len(rawim.shape)
+    if dimension == 2 and channels == 1:
+        im_height, im_width = rawim.shape
+        im_channels = 1
+        mixedim = rawim
+    elif channels == 1:
         im_height, im_width, im_channels = rawim.shape
         mixedim = rawim
     else:

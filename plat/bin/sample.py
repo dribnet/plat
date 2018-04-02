@@ -52,7 +52,8 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
             sys.exit(0)
 
     if cur_anchor_image is not None:
-        _, _, anchor_images = anchors_from_image(cur_anchor_image, image_size=(args.image_size, args.image_size))
+        # _, _, anchor_images = anchors_from_image(cur_anchor_image, channels=args.channels, image_size=(args.image_size, args.image_size))
+        anchor_images = anchors_from_filelist([cur_anchor_image], channels=args.channels)
         if args.offset > 0:
             anchor_images = anchor_images[args.offset:]
         if args.stepsize > 0:
