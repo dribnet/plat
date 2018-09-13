@@ -9,7 +9,7 @@ install_requires = [
     'braceexpand',
     'watchdog',
     'tqdm',
-    'sklearn',
+    'scikit-learn',
     'matplotlib'
 ]
 

@@ -47,6 +47,7 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
             files = files[:args.numanchors]
         anchor_images = anchors_from_filelist(files, args.channels)
         print("Read {} images from {} files".format(len(anchor_images), len(files)))
+        print("First 5 files: ", files[:5])
         if len(anchor_images) == 0:
             print("No images, cannot contine")
             sys.exit(0)
