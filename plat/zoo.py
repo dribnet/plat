@@ -63,7 +63,7 @@ def load_model(model=None, model_file_name=None, model_type=None, model_interfac
     """
 
     if model == None and model_interface == None and model_file_name == None:
-        model_interface = "plat.interface.progan128.Model"
+        model_interface = "plat.interface.biggandeep.Model"
         model_file_name = ""
 
     if model_file_name == None:

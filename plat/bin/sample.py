@@ -75,9 +75,6 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
         img.save(save_path)
         sys.exit(0)
 
-    if dmodel is None:
-        dmodel = zoo.load_model(args.model, args.model_file, args.model_type, args.model_interface)
-
     if args.seed is not None:
         print("Setting random seed to ", args.seed)
         np.random.seed(args.seed)
@@ -85,6 +82,9 @@ def run_with_args(args, dmodel, cur_anchor_image, cur_save_path, cur_z_step, cur
     else:
         np.random.seed(None)
         random.seed(None)
+
+    if dmodel is None:
+        dmodel = zoo.load_model(args.model, args.model_file, args.model_type, args.model_interface)
 
     embedded = None
     if anchor_images is not None:
