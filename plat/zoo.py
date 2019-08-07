@@ -26,6 +26,10 @@ def resolve_model_to_filename(filename):
 def resolve_model_type_from_filename(filename):
     filename_dot_parts = filename.split(".")
     model_type = filename_dot_parts[-1]
+    if model_type == "pth":
+        return "plat.interface.pytorchdcgan.Model"
+    else:
+        return None
 
 model_interface_table = {
     "discgen": "discgen.interface.DiscGenModel",
@@ -65,6 +69,10 @@ def load_model(model=None, model_file_name=None, model_type=None, model_interfac
     if model == None and model_interface == None and model_file_name == None:
         model_interface = "plat.interface.biggandeep.Model"
         model_file_name = ""
+
+    if model_file_name is not None and model_interface is None:
+        model_interface = resolve_model_type_from_filename(model_file_name)
+        print("Resolved {} to {}".format(model_file_name, model_interface))
 
     if model_file_name == None:
         model_file_name = resolve_model_to_filename(model)
